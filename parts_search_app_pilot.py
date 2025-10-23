@@ -332,12 +332,17 @@ st.markdown("""
 # Load API key
 @st.cache_data
 def load_api_key():
+    # Try Streamlit secrets first (for cloud deployment)
     try:
-        with open('api.txt', 'r') as f:
-            return f.read().strip()
-    except FileNotFoundError:
-        st.error("⚠️ API key file not found. Please ensure api.txt exists with your OpenAI API key.")
-        return None
+        return st.secrets["OPENAI_API_KEY"]
+    except (KeyError, FileNotFoundError):
+        # Fall back to api.txt for local development
+        try:
+            with open('api.txt', 'r') as f:
+                return f.read().strip()
+        except FileNotFoundError:
+            st.error("⚠️ API key not found. Please add OPENAI_API_KEY to Streamlit secrets or create api.txt file.")
+            return None
 
 # Initialize OpenAI client
 def init_openai_client():
