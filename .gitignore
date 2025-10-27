@@ -1,0 +1,18 @@
+# Ignore everything except the main app files
+*
+
+# But track these files
+!parts_search_app_pilot.py
+!requirements.txt
+!.gitignore
+
+# Ignore common development files
+__pycache__/
+*.pyc
+.DS_Store
+venv/
+.venv/
+*.log
+.streamlit/
+api.txt
+
