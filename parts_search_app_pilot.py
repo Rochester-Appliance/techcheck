@@ -198,20 +198,23 @@ st.markdown("""
         margin: 4px;
     }
     
-    /* EXPANDABLE SECTIONS */
+    /* EXPANDABLE SECTIONS - Better sizing */
     .streamlit-expanderHeader {
         background: #ffffff !important;
         border: 1px solid #cbd5e1 !important;
         border-radius: 10px !important;
-        padding: 14px 18px !important;
+        padding: 16px 20px !important;
         color: #0f172a !important;
         font-weight: 600 !important;
+        font-size: 15px !important;
         box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
+        min-height: 48px !important;
     }
     
     .streamlit-expanderHeader:hover {
         background: #f8fafc !important;
         border-color: #94a3b8 !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
     }
     
     .streamlit-expanderContent {
@@ -219,7 +222,19 @@ st.markdown("""
         border: 1px solid #e2e8f0 !important;
         border-top: none !important;
         border-radius: 0 0 10px 10px !important;
-        padding: 20px !important;
+        padding: 24px !important;
+        max-height: 600px !important;
+        overflow-y: auto !important;
+    }
+    
+    /* Expander arrow icon */
+    details summary {
+        cursor: pointer !important;
+    }
+    
+    details[open] summary {
+        border-bottom: 1px solid #e2e8f0 !important;
+        margin-bottom: 16px !important;
     }
     
     /* HEADERS - Gradient style */
@@ -599,15 +614,15 @@ def display_probability_badge(percent: int):
 
 # Main app
 def main():
-    # Gradient header
+    # Enhanced gradient header with better styling
     st.markdown("""
         <div class="gradient-header">
-            <h1 style="font-size: 42px; margin: 0;">🔧 TechCheck Pilot</h1>
-            <p style="font-size: 18px; margin: 12px 0 0 0; opacity: 0.95;">
+            <h1 style="font-size: 42px; margin: 0; font-weight: 800;">🔧 TechCheck Pilot</h1>
+            <p style="font-size: 18px; margin: 12px 0 0 0; opacity: 0.95; font-weight: 600;">
                 AI-Powered Kitchen Appliance Diagnostics with Probability Analysis
             </p>
             <p style="font-size: 14px; margin: 8px 0 0 0; opacity: 0.85; font-style: italic;">
-                Editor-curated diagnostics • Vendor pricing • Repair guidance
+                Rochester Appliance • Editor-curated diagnostics • Vendor pricing • Professional repair guidance
             </p>
         </div>
     """, unsafe_allow_html=True)
@@ -625,23 +640,54 @@ def main():
     if "expanded_solutions" not in st.session_state:
         st.session_state.expanded_solutions = {}
     
-    # Sidebar
+    # Enhanced sidebar
     with st.sidebar:
-        st.markdown("### 📋 About")
+        st.markdown("### 📋 About TechCheck Pilot")
         st.info("""
-**TechCheck Pilot** uses AI to:
-- Analyze symptoms
-- Calculate probabilities
-- Recommend parts
-- Provide repair steps
-- Find vendors
+**AI-Powered Diagnostics** that:
+- 🎯 Analyzes symptoms
+- 📊 Calculates probabilities  
+- 🔩 Recommends specific parts
+- 📖 Provides repair steps
+- 🛒 Finds vendor pricing
+- ✅ Tracks outcomes
         """)
         
-        if st.button("🔄 Start New Diagnosis", use_container_width=True):
+        st.markdown("---")
+        st.markdown("### 🏪 Rochester Appliance")
+        st.success("""
+**Free Pickup Available!**
+
+Visit us for all your appliance parts and expert advice.
+        """)
+        
+        st.markdown("---")
+        st.markdown("### 💡 Pro Tips")
+        st.markdown("""
+**For Best Results:**
+- Be specific about symptoms
+- Include error codes
+- Note when issues occur
+- Try high % causes first
+        """)
+        
+        st.markdown("---")
+        
+        if st.button("🔄 Start New Diagnosis", use_container_width=True, type="primary"):
             st.session_state.diagnosis = None
             st.session_state.diagnostic_complete = False
             st.session_state.expanded_solutions = {}
             st.rerun()
+        
+        # Add statistics if diagnosis is complete
+        if st.session_state.get("diagnostic_complete"):
+            st.markdown("---")
+            st.markdown("### 📊 Current Diagnosis")
+            st.metric("Model", st.session_state.get("model_number", "N/A"))
+            if st.session_state.get("diagnosis") and st.session_state["diagnosis"].get("probabilities"):
+                st.metric("Issues Found", len(st.session_state["diagnosis"]["probabilities"]))
+                top_prob = st.session_state["diagnosis"]["probabilities"][0][0]
+                st.metric("Top Probability", f"{top_prob}%")
     
     # Main input section
     if not st.session_state.diagnostic_complete:
@@ -668,14 +714,35 @@ def main():
             help="More details = better diagnosis"
         )
         
-        # Example
-        with st.expander("💡 See example descriptions"):
-            st.markdown("""
-**Good examples:**
+        # Enhanced example section
+        with st.expander("💡 See example descriptions & tips"):
+            col_ex1, col_ex2 = st.columns(2)
+            
+            with col_ex1:
+                st.markdown("**✅ Good Examples:**")
+                st.success("""
 - "Leaking water from bottom front after defrost cycle"
 - "Not cooling, compressor runs constantly, frost in freezer"
-- "Making loud grinding noise when dispensing ice"
+- "Making loud grinding noise when dispensing ice"  
 - "Display shows E1 error, not heating"
+                """)
+            
+            with col_ex2:
+                st.markdown("**❌ Too Vague:**")
+                st.error("""
+- "It's broken"
+- "Not working"
+- "Makes noise"
+- "Has a problem"
+                """)
+            
+            st.markdown("---")
+            st.markdown("**💡 Include these details:**")
+            st.markdown("""
+- **When:** Does it happen all the time? Only when cooling? During defrost?
+- **Sounds:** Grinding? Buzzing? Clicking? Silent?
+- **Leaks:** Where exactly? How much? What color?
+- **Error Codes:** Any numbers or letters on display?
             """)
         
         st.markdown("---")
@@ -690,17 +757,26 @@ def main():
                 progress_bar = st.progress(0)
                 status_text = st.empty()
                 
-                status_text.text("🌐 Searching web...")
-                progress_bar.progress(33)
+                # Enhanced loading with better messages
+                status_text.markdown("**🌐 Searching web for** `" + model_number + "`")
+                progress_bar.progress(20)
+                time.sleep(0.4)
+                
+                status_text.markdown("**📊 Gathering repair data from multiple sources...**")
+                progress_bar.progress(40)
                 time.sleep(0.3)
                 
-                status_text.text("🧠 Analyzing with AI...")
-                progress_bar.progress(66)
+                status_text.markdown("**🧠 Analyzing symptoms with GPT-4 Turbo...**")
+                progress_bar.progress(60)
                 
                 diagnosis = perform_diagnostic_analysis(client, model_number, problem_description)
                 
+                progress_bar.progress(80)
+                status_text.markdown("**🔍 Extracting part numbers and solutions...**")
+                time.sleep(0.3)
+                
                 progress_bar.progress(100)
-                status_text.text("✅ Complete!")
+                status_text.markdown("**✅ Diagnosis complete!**")
                 time.sleep(0.5)
                 
                 st.session_state.diagnosis = diagnosis
@@ -723,7 +799,7 @@ def main():
             st.error(f"❌ {diagnosis['error']}")
             return
         
-        # Model info header
+        # Model info header with enhanced stats
         st.markdown(f"""
             <div class="gradient-header">
                 <h2 style="margin: 0; font-size: 28px;">🔬 Diagnostic Results</h2>
@@ -735,6 +811,53 @@ def main():
                 </p>
             </div>
         """, unsafe_allow_html=True)
+        
+        # Quick stats summary - FIXED to show actual web sources
+        if diagnosis.get("probabilities"):
+            col_stat1, col_stat2, col_stat3 = st.columns(3)
+            
+            with col_stat1:
+                st.markdown("""
+                <div style="background: white; padding: 16px; border-radius: 10px; text-align: center; border: 2px solid #e2e8f0;">
+                    <div style="font-size: 32px; font-weight: 800; color: #3b82f6;">
+                        {}</div>
+                    <div style="font-size: 13px; color: #64748b; margin-top: 4px;">
+                        Probable Causes</div>
+                </div>
+                """.format(len(diagnosis["probabilities"])), unsafe_allow_html=True)
+            
+            with col_stat2:
+                top_prob = diagnosis["probabilities"][0][0]
+                st.markdown("""
+                <div style="background: white; padding: 16px; border-radius: 10px; text-align: center; border: 2px solid #e2e8f0;">
+                    <div style="font-size: 32px; font-weight: 800; color: #ef4444;">
+                        {}%</div>
+                    <div style="font-size: 13px; color: #64748b; margin-top: 4px;">
+                        Top Probability</div>
+                </div>
+                """.format(top_prob), unsafe_allow_html=True)
+            
+            with col_stat3:
+                # Count actual web results properly
+                web_results = diagnosis.get("web_results", [])
+                web_count = len([r for r in web_results if r.get('title') or r.get('url')])
+                
+                # Also count extracted videos and resources
+                total_sources = web_count
+                for prob, title, desc in diagnosis.get("probabilities", [])[:3]:
+                    details = extract_issue_details(diagnosis["full_analysis"], title)
+                    total_sources += len(details.get("video_searches", []))
+                
+                st.markdown("""
+                <div style="background: white; padding: 16px; border-radius: 10px; text-align: center; border: 2px solid #e2e8f0;">
+                    <div style="font-size: 32px; font-weight: 800; color: #10b981;">
+                        {}</div>
+                    <div style="font-size: 13px; color: #64748b; margin-top: 4px;">
+                        Total Sources</div>
+                </div>
+                """.format(total_sources), unsafe_allow_html=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
         
         # Display probability distribution
         if diagnosis.get("probabilities"):
@@ -792,56 +915,91 @@ def main():
                                 if issue_details['parts']:
                                     st.markdown("### 🔩 Parts Needed")
                                     for part_idx, part in enumerate(issue_details['parts'], 1):
-                                        st.markdown(f"**{part_idx}.** {part}")
-                                        st.markdown("")
+                                        # Create a nice box for each part
+                                        st.markdown(f"""
+                                        <div style="background: #f8fafc; padding: 12px; border-radius: 8px; 
+                                                    border-left: 4px solid #3b82f6; margin: 8px 0;">
+                                            <strong style="color: #1e293b;">Part {part_idx}:</strong><br>
+                                            <span style="color: #475569;">{part}</span>
+                                        </div>
+                                        """, unsafe_allow_html=True)
                                 else:
-                                    st.info("No specific parts required for this repair. Try basic troubleshooting first.")
+                                    st.info("✅ No specific parts required for this repair. Try basic troubleshooting first.")
                         
                         with col2:
                             if st.button("✅ Verify", key=f"verify_{idx}", use_container_width=True):
                                 if issue_details['verify_steps']:
                                     st.markdown("### ✅ Verification Steps")
+                                    st.markdown("*Complete these checks to confirm the diagnosis:*")
                                     for step_idx, step in enumerate(issue_details['verify_steps'], 1):
-                                        st.markdown(f"**{step_idx}.** {step}")
-                                        st.markdown("")
+                                        st.markdown(f"""
+                                        <div style="background: #f0fdf4; padding: 10px; border-radius: 8px; 
+                                                    border-left: 4px solid #10b981; margin: 8px 0;">
+                                            <strong style="color: #166534;">✓ Step {step_idx}:</strong><br>
+                                            <span style="color: #14532d;">{step}</span>
+                                        </div>
+                                        """, unsafe_allow_html=True)
                                     
                                     if issue_details['safety_warnings']:
-                                        st.warning("**⚠️ Safety Warnings:**")
+                                        st.markdown("---")
+                                        st.error("**⚠️ Safety Warnings:**")
                                         for warning in issue_details['safety_warnings']:
-                                            st.markdown(f"• {warning}")
+                                            st.markdown(f"🔴 {warning}")
                                 else:
-                                    st.info("Standard verification: Check if the issue is resolved after repair.")
+                                    st.info("✅ Standard verification: Check if the issue is resolved after repair.")
                         
                         with col3:
                             if st.button("🎥 Video", key=f"video_{idx}", use_container_width=True):
+                                st.markdown("### 🎥 Video Tutorials")
+                                st.markdown("*Click to watch repair guides on YouTube:*")
+                                
                                 if issue_details['video_searches']:
-                                    st.markdown("### 🎥 Video Tutorials")
-                                    st.markdown("**Search on YouTube:**")
                                     for vid_idx, search in enumerate(issue_details['video_searches'], 1):
                                         youtube_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote_plus(search)}"
-                                        st.markdown(f"**{vid_idx}.** [{search}]({youtube_url})")
-                                        st.markdown("")
+                                        st.markdown(f"""
+                                        <div style="background: #fef2f2; padding: 10px; border-radius: 8px; 
+                                                    border-left: 4px solid #ef4444; margin: 8px 0;">
+                                            <strong style="color: #991b1b;">📺 Tutorial {vid_idx}:</strong><br>
+                                            <a href="{youtube_url}" target="_blank" style="color: #dc2626; text-decoration: none;">
+                                                {search} →
+                                            </a>
+                                        </div>
+                                        """, unsafe_allow_html=True)
                                 else:
                                     search_term = f"{st.session_state.model_number} {title} repair"
                                     youtube_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote_plus(search_term)}"
-                                    st.markdown(f"[Search YouTube: {search_term}]({youtube_url})")
+                                    st.markdown(f"""
+                                    <div style="background: #fef2f2; padding: 12px; border-radius: 8px; 
+                                                border-left: 4px solid #ef4444; margin: 8px 0;">
+                                        <a href="{youtube_url}" target="_blank" style="color: #dc2626; font-weight: 600;">
+                                            📺 Search YouTube: {search_term} →
+                                        </a>
+                                    </div>
+                                    """, unsafe_allow_html=True)
                         
                         with col4:
                             if st.button("📖 Details", key=f"details_{idx}", use_container_width=True):
                                 if issue_details['repair_steps']:
                                     st.markdown("### 📖 Step-by-Step Repair Guide")
+                                    st.markdown(f"*Follow these {len(issue_details['repair_steps'])} steps carefully:*")
+                                    
                                     for repair_idx, step in enumerate(issue_details['repair_steps'], 1):
-                                        st.markdown(f"**Step {repair_idx}:** {step}")
-                                        st.markdown("")
+                                        st.markdown(f"""
+                                        <div style="background: #faf5ff; padding: 12px; border-radius: 8px; 
+                                                    border-left: 4px solid #8b5cf6; margin: 10px 0;">
+                                            <strong style="color: #6b21a8;">🔧 Step {repair_idx}:</strong><br>
+                                            <span style="color: #581c87;">{step}</span>
+                                        </div>
+                                        """, unsafe_allow_html=True)
                                     
                                     if issue_details['safety_warnings']:
-                                        st.error("**⚠️ Safety Warnings:**")
+                                        st.markdown("---")
+                                        st.error("**⚠️ IMPORTANT Safety Warnings:**")
                                         for warning in issue_details['safety_warnings']:
-                                            st.markdown(f"• {warning}")
+                                            st.markdown(f"🔴 {warning}")
                                 else:
-                                    # Fallback to showing relevant section from full analysis
                                     st.markdown("### 📖 Repair Information")
-                                    st.markdown(diagnosis["full_analysis"][:1000])
+                                    st.info(issue_details['explanation'] if issue_details['explanation'] else "Detailed repair information available in full diagnostic report.")
                         
                         # Shopping links with actual part numbers
                         st.markdown("---")
@@ -860,25 +1018,53 @@ def main():
                             
                             if part_numbers:
                                 for pn in part_numbers[:3]:  # Show up to 3 parts
-                                    st.markdown(f"**Part #{pn}:**")
+                                    st.markdown(f"""
+                                    <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); 
+                                                padding: 16px; border-radius: 12px; margin: 12px 0; 
+                                                border: 1px solid #93c5fd;">
+                                        <strong style="color: #1e40af; font-size: 16px;">Part #{pn}</strong>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    
                                     col_a, col_b, col_c = st.columns(3)
                                     
                                     with col_a:
                                         ra_url = "https://maps.google.com/?q=Rochester+Appliance"
-                                        st.markdown(f"[🏪 Rochester Appliance]({ra_url})")
-                                        st.caption("Free pickup")
+                                        st.markdown(f"""
+                                        <a href="{ra_url}" target="_blank" style="
+                                            display: block; background: #10b981; color: white; 
+                                            padding: 12px; border-radius: 8px; text-align: center; 
+                                            text-decoration: none; font-weight: 600; margin: 4px 0;">
+                                            🏪 Rochester Appliance
+                                        </a>
+                                        """, unsafe_allow_html=True)
+                                        st.caption("✅ Free pickup")
                                     
                                     with col_b:
                                         amazon_url = f"https://www.amazon.com/s?k={urllib.parse.quote_plus(pn)}"
-                                        st.markdown(f"[📦 Amazon]({amazon_url})")
-                                        st.caption("Fast shipping")
+                                        st.markdown(f"""
+                                        <a href="{amazon_url}" target="_blank" style="
+                                            display: block; background: #f59e0b; color: white; 
+                                            padding: 12px; border-radius: 8px; text-align: center; 
+                                            text-decoration: none; font-weight: 600; margin: 4px 0;">
+                                            📦 Amazon
+                                        </a>
+                                        """, unsafe_allow_html=True)
+                                        st.caption("🚚 Fast shipping")
                                     
                                     with col_c:
                                         ps_url = f"https://www.partselect.com/search?searchterm={urllib.parse.quote_plus(pn)}"
-                                        st.markdown(f"[🔧 PartSelect]({ps_url})")
-                                        st.caption("OEM parts")
+                                        st.markdown(f"""
+                                        <a href="{ps_url}" target="_blank" style="
+                                            display: block; background: #3b82f6; color: white; 
+                                            padding: 12px; border-radius: 8px; text-align: center; 
+                                            text-decoration: none; font-weight: 600; margin: 4px 0;">
+                                            🔧 PartSelect
+                                        </a>
+                                        """, unsafe_allow_html=True)
+                                        st.caption("⭐ OEM parts")
                                     
-                                    st.markdown("")
+                                    st.markdown("<br>", unsafe_allow_html=True)
                             else:
                                 # Generic search if no specific part numbers found
                                 search_term = f"{st.session_state.model_number} {title}"
@@ -898,19 +1084,31 @@ def main():
                         else:
                             st.info("No parts needed for basic troubleshooting. Try the verification steps first.")
                         
-                        # Outcome tracking
+                        # Outcome tracking with better UI
                         st.markdown("---")
                         st.markdown("#### 📊 Did this recommendation resolve the problem?")
                         
                         col_yes, col_no, _ = st.columns([1, 1, 2])
                         
                         with col_yes:
-                            if st.button("✅ Yes — Resolved", key=f"yes_{idx}", type="primary", use_container_width=True):
-                                st.success("🎉 Great! Your feedback has been recorded.")
+                            if st.button("✅ Yes — Resolved", key=f"yes_{idx}", use_container_width=True):
+                                st.markdown("""
+                                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
+                                            color: white; padding: 16px; border-radius: 10px; text-align: center; margin: 8px 0;">
+                                    <strong style="font-size: 18px;">🎉 Problem Resolved!</strong><br>
+                                    <span style="font-size: 13px; opacity: 0.9;">Thank you for the feedback. Glad we could help!</span>
+                                </div>
+                                """, unsafe_allow_html=True)
                         
                         with col_no:
                             if st.button("❌ No — Not resolved", key=f"no_{idx}", use_container_width=True):
-                                st.warning("📝 Noted. Try the next solution or contact a technician.")
+                                st.markdown("""
+                                <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); 
+                                            color: white; padding: 16px; border-radius: 10px; text-align: center; margin: 8px 0;">
+                                    <strong style="font-size: 16px;">📝 Try Next Solution</strong><br>
+                                    <span style="font-size: 13px; opacity: 0.9;">Expand another cause card or contact a technician</span>
+                                </div>
+                                """, unsafe_allow_html=True)
                 
                 st.markdown('</div>', unsafe_allow_html=True)
                 st.markdown("<br>", unsafe_allow_html=True)
@@ -971,7 +1169,20 @@ Generated: {diagnosis['timestamp']}
         
         with col3:
             if st.button("📞 Contact Technician", use_container_width=True):
-                st.info("For professional assistance, contact a certified appliance technician.")
+                st.info("📞 **Need professional help?** Contact Rochester Appliance or a certified appliance technician in your area.")
+    
+    # Professional footer
+    st.markdown("---")
+    st.markdown("""
+        <div style="text-align: center; padding: 24px; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); 
+                    border-radius: 12px; margin-top: 40px;">
+            <p style="color: #64748b; font-size: 13px; margin: 0;">
+                <strong style="color: #1e293b;">TechCheck Pilot</strong> • Powered by OpenAI GPT-4 Turbo<br>
+                Built for Rochester Appliance • Version 1.0.0 Pilot<br>
+                <span style="font-size: 11px;">All diagnostic information is AI-generated. Please verify with a professional technician for complex repairs.</span>
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
