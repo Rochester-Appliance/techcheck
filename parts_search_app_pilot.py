@@ -395,24 +395,16 @@ def search_web(query: str, num_results: int = 10) -> List[Dict]:
     except Exception as e:
         return []
 
-# Diagnostic analysis function
+# Diagnostic analysis function - GPT-5 with built-in web search
 def perform_diagnostic_analysis(client, model_number: str, problem_description: str) -> Dict:
-    """Perform comprehensive diagnostic analysis with detailed solutions"""
-    
-    # Search the web for relevant information
-    search_query = f"{model_number} {problem_description} repair parts"
-    web_results = search_web(search_query, 15)
-    
-    # Create context from web results
-    web_context = "\n".join([f"- {r['title']}: {r['snippet']}" for r in web_results[:10]])
+    """Perform comprehensive diagnostic analysis using GPT-5 with web search"""
     
     diagnostic_prompt = f"""You are an expert appliance repair technician with 20+ years experience.
 
 Model: {model_number}
 Problem: {problem_description}
 
-Web Research Context:
-{web_context}
+Search the web for the latest repair information, part numbers, and troubleshooting guides for this specific model.
 
 Provide a HIGHLY DETAILED diagnostic analysis in this EXACT format:
 
@@ -454,6 +446,7 @@ Provide a HIGHLY DETAILED diagnostic analysis in this EXACT format:
 Repeat this format for ALL issues. Be extremely specific with part numbers, verification steps, and repair instructions."""
 
     try:
+        # Use GPT-4 Turbo with DuckDuckGo web search
         response = client.chat.completions.create(
             model="gpt-4-turbo-preview",
             messages=[
@@ -465,6 +458,10 @@ Repeat this format for ALL issues. Be extremely specific with part numbers, veri
         )
         
         analysis = response.choices[0].message.content
+        
+        # Web search using DuckDuckGo
+        search_query = f"{model_number} {problem_description} repair parts"
+        web_results = search_web(search_query, 15)
         
         # Extract probabilities
         probability_pattern = r'\[(\d+)%\]\s*([^|]+)\|\s*([^\n]+)'
@@ -614,16 +611,13 @@ def display_probability_badge(percent: int):
 
 # Main app
 def main():
-    # Enhanced gradient header with better styling
+    # Compressed header - single line
     st.markdown("""
-        <div class="gradient-header">
-            <h1 style="font-size: 42px; margin: 0; font-weight: 800;">🔧 TechCheck Pilot</h1>
-            <p style="font-size: 18px; margin: 12px 0 0 0; opacity: 0.95; font-weight: 600;">
-                AI-Powered Kitchen Appliance Diagnostics with Probability Analysis
-            </p>
-            <p style="font-size: 14px; margin: 8px 0 0 0; opacity: 0.85; font-style: italic;">
-                Rochester Appliance • Editor-curated diagnostics • Vendor pricing • Professional repair guidance
-            </p>
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                    color: white; padding: 20px; border-radius: 12px; margin: 16px 0; text-align: center;">
+            <h1 style="font-size: 24px; margin: 0; font-weight: 700;">
+                🔧 TechCheckPilot — Diagnostics with probability analysis
+            </h1>
         </div>
     """, unsafe_allow_html=True)
     
@@ -689,48 +683,38 @@ Visit us for all your appliance parts and expert advice.
                 top_prob = st.session_state["diagnosis"]["probabilities"][0][0]
                 st.metric("Top Probability", f"{top_prob}%")
     
-    # Main input section
+    # Main input section - NO section headers
     if not st.session_state.diagnostic_complete:
-        st.markdown("## 🏷️ Enter Information")
-        
-        # Employee and Problem Identifier
+        # Tech Name and Job Name/Number
         col_emp, col_prob = st.columns(2)
         
         with col_emp:
-            employee_number = st.text_input(
-                "Employee Number *",
-                placeholder="e.g., EMP12345",
-                help="Enter your employee ID"
+            tech_name = st.text_input(
+                "Tech Name *",
+                placeholder="e.g., John Smith",
+                help="Technician name"
             )
         
         with col_prob:
-            problem_identifier = st.text_input(
-                "Problem Identifier *",
-                placeholder="e.g., TICKET-2024-001",
-                help="Case or ticket number"
+            job_number = st.text_input(
+                "Job Name / Number *",
+                placeholder="e.g., JOB-2024-001",
+                help="Job or ticket number"
             )
         
-        st.markdown("### 🏷️ Appliance Information")
+        # Model Number (no "Appliance Information" header)
+        model_number = st.text_input(
+            "Model Number *",
+            placeholder="e.g., FRFS2823AD, WRS325SDHZ, GDT665SSNSS",
+            help="Find this on the appliance label or manual"
+        )
         
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            model_number = st.text_input(
-                "Model Number *",
-                placeholder="e.g., FRFS2823AD, WRS325SDHZ, GDT665SSNSS",
-                help="Find this on the appliance label or manual"
-            )
-        
-        with col2:
-            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-            st.info("💡 Required field")
-        
-        st.markdown("### 📋 Problem Description")
+        # Symptoms (renamed from Problem Description)
         problem_description = st.text_area(
-            "What's happening with your appliance? *",
-            placeholder="Be specific: sounds, leaks, error codes, when it happens, etc.",
+            "Symptoms *",
+            placeholder="What's happening with your appliance/HVAC unit?",
             height=120,
-            help="More details = better diagnosis"
+            help="Be specific about sounds, leaks, error codes, timing"
         )
         
         # Enhanced example section
@@ -766,10 +750,10 @@ Visit us for all your appliance parts and expert advice.
         
         st.markdown("---")
         
-        # Diagnose button - now requires all 4 fields
+        # Diagnose button - requires all 4 fields
         can_diagnose = bool(
-            employee_number and employee_number.strip() and
-            problem_identifier and problem_identifier.strip() and
+            tech_name and tech_name.strip() and
+            job_number and job_number.strip() and
             model_number and model_number.strip() and 
             problem_description and problem_description.strip()
         )
@@ -777,45 +761,47 @@ Visit us for all your appliance parts and expert advice.
         col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
         
         with col_btn2:
-            if st.button("🔬 Perform AI Diagnosis", type="primary", use_container_width=True, disabled=not can_diagnose):
-                progress_bar = st.progress(0)
-                status_text = st.empty()
+            if st.button("🔬 Perform Diagnosis", type="primary", use_container_width=True, disabled=not can_diagnose):
+                # Use a SINGLE container for all status updates (prevents extra bars)
+                status_container = st.empty()
                 
-                # Enhanced loading with better messages
-                status_text.markdown("**🌐 Searching web for** `" + model_number + "`")
-                progress_bar.progress(20)
-                time.sleep(0.4)
+                with status_container.container():
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    
+                    # Enhanced loading with better messages
+                    status_text.markdown("**🧠 Analyzing with GPT-5 reasoning...**")
+                    progress_bar.progress(30)
+                    time.sleep(0.4)
+                    
+                    status_text.markdown("**🌐 Searching web for latest repair data...**")
+                    progress_bar.progress(60)
+                    time.sleep(0.3)
+                    
+                    diagnosis = perform_diagnostic_analysis(client, model_number, problem_description)
+                    
+                    progress_bar.progress(80)
+                    status_text.markdown("**🔍 Extracting part numbers and solutions...**")
+                    time.sleep(0.3)
+                    
+                    progress_bar.progress(100)
+                    status_text.markdown("**✅ Diagnosis complete!**")
+                    time.sleep(0.5)
                 
-                status_text.markdown("**📊 Gathering repair data from multiple sources...**")
-                progress_bar.progress(40)
-                time.sleep(0.3)
-                
-                status_text.markdown("**🧠 Analyzing symptoms with GPT-4 Turbo...**")
-                progress_bar.progress(60)
-                
-                diagnosis = perform_diagnostic_analysis(client, model_number, problem_description)
-                
-                progress_bar.progress(80)
-                status_text.markdown("**🔍 Extracting part numbers and solutions...**")
-                time.sleep(0.3)
-                
-                progress_bar.progress(100)
-                status_text.markdown("**✅ Diagnosis complete!**")
-                time.sleep(0.5)
+                # Clear the entire container
+                status_container.empty()
                 
                 st.session_state.diagnosis = diagnosis
                 st.session_state.diagnostic_complete = True
-                st.session_state.employee_number = employee_number
-                st.session_state.problem_identifier = problem_identifier
+                st.session_state.tech_name = tech_name
+                st.session_state.job_number = job_number
                 st.session_state.model_number = model_number
                 st.session_state.problem_description = problem_description
                 
-                progress_bar.empty()
-                status_text.empty()
                 st.rerun()
         
         if not can_diagnose:
-            st.warning("⚠️ Please fill in all required fields: Employee Number, Problem Identifier, Model Number, and Problem Description.")
+            st.warning("⚠️ Please fill in all required fields: Tech Name, Job Name/Number, Model Number, and Symptoms.")
     
     # Display diagnostic results
     else:
@@ -825,18 +811,19 @@ Visit us for all your appliance parts and expert advice.
             st.error(f"❌ {diagnosis['error']}")
             return
         
-        # Model info header with enhanced stats
+        # Results header
         st.markdown(f"""
-            <div class="gradient-header">
-                <h2 style="margin: 0; font-size: 28px;">🔬 Diagnostic Results</h2>
-                <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.8;">
-                    Employee: {st.session_state.employee_number} • Case: {st.session_state.problem_identifier}
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        color: white; padding: 20px; border-radius: 12px; margin: 16px 0; text-align: center;">
+                <h2 style="margin: 0; font-size: 24px; font-weight: 700;">🔬 Diagnostic Results</h2>
+                <p style="margin: 8px 0 0 0; font-size: 13px; opacity: 0.85;">
+                    Tech: {st.session_state.tech_name} • Job: {st.session_state.job_number}
                 </p>
-                <p style="margin: 12px 0 0 0; font-size: 18px; font-weight: 600;">
+                <p style="margin: 10px 0 0 0; font-size: 16px; font-weight: 600;">
                     Model: {st.session_state.model_number}
                 </p>
-                <p style="margin: 8px 0 0 0; font-size: 15px; opacity: 0.9;">
-                    {st.session_state.problem_description[:120]}{'...' if len(st.session_state.problem_description) > 120 else ''}
+                <p style="margin: 6px 0 0 0; font-size: 14px; opacity: 0.9;">
+                    {st.session_state.problem_description[:100]}{'...' if len(st.session_state.problem_description) > 100 else ''}
                 </p>
             </div>
         """, unsafe_allow_html=True)
@@ -935,27 +922,11 @@ Visit us for all your appliance parts and expert advice.
                         
                         st.markdown("---")
                         
-                        # Action chips with REAL information
+                        # Action chips REORDERED: Verify, Part #, Video, Details
                         st.markdown("**📋 Solution Details:**")
                         col1, col2, col3, col4 = st.columns(4)
                         
                         with col1:
-                            if st.button("🔩 Part #", key=f"parts_{idx}", use_container_width=True):
-                                if issue_details['parts']:
-                                    st.markdown("### 🔩 Parts Needed")
-                                    for part_idx, part in enumerate(issue_details['parts'], 1):
-                                        # Create a nice box for each part
-                                        st.markdown(f"""
-                                        <div style="background: #f8fafc; padding: 12px; border-radius: 8px; 
-                                                    border-left: 4px solid #3b82f6; margin: 8px 0;">
-                                            <strong style="color: #1e293b;">Part {part_idx}:</strong><br>
-                                            <span style="color: #475569;">{part}</span>
-                                        </div>
-                                        """, unsafe_allow_html=True)
-                                else:
-                                    st.info("✅ No specific parts required for this repair. Try basic troubleshooting first.")
-                        
-                        with col2:
                             if st.button("✅ Verify", key=f"verify_{idx}", use_container_width=True):
                                 if issue_details['verify_steps']:
                                     st.markdown("### ✅ Verification Steps")
@@ -976,6 +947,30 @@ Visit us for all your appliance parts and expert advice.
                                             st.markdown(f"🔴 {warning}")
                                 else:
                                     st.info("✅ Standard verification: Check if the issue is resolved after repair.")
+                        
+                        with col2:
+                            if st.button("🔩 Part #", key=f"parts_{idx}", use_container_width=True):
+                                if issue_details['parts']:
+                                    st.markdown("### 🔩 Parts Needed")
+                                    for part_idx, part in enumerate(issue_details['parts'], 1):
+                                        # Format: PartNumber — PartName (remove "Part Name:" prefix)
+                                        # Extract part number
+                                        part_match = re.search(r'(\d{7,12})\s*[-–—]\s*(.+)', part)
+                                        if part_match:
+                                            pn = part_match.group(1)
+                                            name = part_match.group(2).replace("Part Name:", "").strip()
+                                            display_text = f"{pn} — {name}"
+                                        else:
+                                            display_text = part.replace("Part Name:", "").strip()
+                                        
+                                        st.markdown(f"""
+                                        <div style="background: #f8fafc; padding: 12px; border-radius: 8px; 
+                                                    border-left: 4px solid #3b82f6; margin: 8px 0;">
+                                            <strong style="color: #1e293b;">{display_text}</strong>
+                                        </div>
+                                        """, unsafe_allow_html=True)
+                                else:
+                                    st.info("✅ No specific parts required for this repair. Try basic troubleshooting first.")
                         
                         with col3:
                             if st.button("🎥 Video", key=f"video_{idx}", use_container_width=True):
@@ -1030,114 +1025,42 @@ Visit us for all your appliance parts and expert advice.
                                     st.markdown("### 📖 Repair Information")
                                     st.info(issue_details['explanation'] if issue_details['explanation'] else "Detailed repair information available in full diagnostic report.")
                         
-                        # Shopping links with actual part numbers
-                        st.markdown("---")
-                        st.markdown("### 🛒 Where to Buy Parts")
+                        # NO vendor links section - removed per manager request
                         
-                        if issue_details['parts']:
-                            st.markdown("**Search for these specific parts:**")
-                            
-                            # Extract part numbers from parts list
-                            part_numbers = []
-                            for part in issue_details['parts']:
-                                # Look for numbers that could be part numbers
-                                numbers = re.findall(r'\b\d{7,12}\b', part)
-                                if numbers:
-                                    part_numbers.extend(numbers)
-                            
-                            if part_numbers:
-                                for pn in part_numbers[:3]:  # Show up to 3 parts
-                                    st.markdown(f"""
-                                    <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); 
-                                                padding: 16px; border-radius: 12px; margin: 12px 0; 
-                                                border: 1px solid #93c5fd;">
-                                        <strong style="color: #1e40af; font-size: 16px;">Part #{pn}</strong>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                                    
-                                    col_a, col_b, col_c = st.columns(3)
-                                    
-                                    with col_a:
-                                        ra_url = "https://maps.google.com/?q=Rochester+Appliance"
-                                        st.markdown(f"""
-                                        <a href="{ra_url}" target="_blank" style="
-                                            display: block; background: #10b981; color: white; 
-                                            padding: 12px; border-radius: 8px; text-align: center; 
-                                            text-decoration: none; font-weight: 600; margin: 4px 0;">
-                                            🏪 Rochester Appliance
-                                        </a>
-                                        """, unsafe_allow_html=True)
-                                        st.caption("✅ Free pickup")
-                                    
-                                    with col_b:
-                                        amazon_url = f"https://www.amazon.com/s?k={urllib.parse.quote_plus(pn)}"
-                                        st.markdown(f"""
-                                        <a href="{amazon_url}" target="_blank" style="
-                                            display: block; background: #f59e0b; color: white; 
-                                            padding: 12px; border-radius: 8px; text-align: center; 
-                                            text-decoration: none; font-weight: 600; margin: 4px 0;">
-                                            📦 Amazon
-                                        </a>
-                                        """, unsafe_allow_html=True)
-                                        st.caption("🚚 Fast shipping")
-                                    
-                                    with col_c:
-                                        ps_url = f"https://www.partselect.com/search?searchterm={urllib.parse.quote_plus(pn)}"
-                                        st.markdown(f"""
-                                        <a href="{ps_url}" target="_blank" style="
-                                            display: block; background: #3b82f6; color: white; 
-                                            padding: 12px; border-radius: 8px; text-align: center; 
-                                            text-decoration: none; font-weight: 600; margin: 4px 0;">
-                                            🔧 PartSelect
-                                        </a>
-                                        """, unsafe_allow_html=True)
-                                        st.caption("⭐ OEM parts")
-                                    
-                                    st.markdown("<br>", unsafe_allow_html=True)
-                            else:
-                                # Generic search if no specific part numbers found
-                                search_term = f"{st.session_state.model_number} {title}"
-                                col_a, col_b, col_c = st.columns(3)
-                                
-                                with col_a:
-                                    st.markdown(f"[🏪 Rochester Appliance](https://maps.google.com/?q=Rochester+Appliance)")
-                                    st.caption("Free pickup")
-                                
-                                with col_b:
-                                    st.markdown(f"[📦 Amazon](https://www.amazon.com/s?k={urllib.parse.quote_plus(search_term)})")
-                                    st.caption("Fast shipping")
-                                
-                                with col_c:
-                                    st.markdown(f"[🔧 PartSelect](https://www.partselect.com/search?searchterm={urllib.parse.quote_plus(search_term)})")
-                                    st.caption("OEM parts")
+                        # Outcome tracking - Radio buttons in colored box
+                        st.markdown("---")
+                        
+                        # Initialize outcome state for this solution
+                        outcome_key = f"outcome_{idx}"
+                        if outcome_key not in st.session_state:
+                            st.session_state[outcome_key] = None
+                        
+                        # Determine box color based on selection
+                        if st.session_state[outcome_key] == "Yes, resolved":
+                            box_color = "#f0fdf4"  # Green tint
+                            border_color = "#10b981"
+                        elif st.session_state[outcome_key] == "No, not resolved":
+                            box_color = "#fff7ed"  # Amber tint
+                            border_color = "#f59e0b"
                         else:
-                            st.info("No parts needed for basic troubleshooting. Try the verification steps first.")
+                            box_color = "#f8fafc"  # Neutral
+                            border_color = "#cbd5e1"
                         
-                        # Outcome tracking with better UI
-                        st.markdown("---")
-                        st.markdown("#### 📊 Did this recommendation resolve the problem?")
+                        st.markdown(f"""
+                        <div style="background: {box_color}; border: 2px solid {border_color}; 
+                                    border-radius: 10px; padding: 16px; margin: 12px 0;">
+                            <strong style="color: #1e293b; font-size: 14px;">📊 Did this recommendation resolve the problem?</strong>
+                        </div>
+                        """, unsafe_allow_html=True)
                         
-                        col_yes, col_no, _ = st.columns([1, 1, 2])
-                        
-                        with col_yes:
-                            if st.button("✅ Yes — Resolved", key=f"yes_{idx}", use_container_width=True):
-                                st.markdown("""
-                                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
-                                            color: white; padding: 16px; border-radius: 10px; text-align: center; margin: 8px 0;">
-                                    <strong style="font-size: 18px;">🎉 Problem Resolved!</strong><br>
-                                    <span style="font-size: 13px; opacity: 0.9;">Thank you for the feedback. Glad we could help!</span>
-                                </div>
-                                """, unsafe_allow_html=True)
-                        
-                        with col_no:
-                            if st.button("❌ No — Not resolved", key=f"no_{idx}", use_container_width=True):
-                                st.markdown("""
-                                <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); 
-                                            color: white; padding: 16px; border-radius: 10px; text-align: center; margin: 8px 0;">
-                                    <strong style="font-size: 16px;">📝 Try Next Solution</strong><br>
-                                    <span style="font-size: 13px; opacity: 0.9;">Expand another cause card or contact a technician</span>
-                                </div>
-                                """, unsafe_allow_html=True)
+                        # Radio buttons for outcome
+                        outcome = st.radio(
+                            "Select outcome:",
+                            options=["Yes, resolved", "No, not resolved"],
+                            key=outcome_key,
+                            horizontal=False,
+                            label_visibility="collapsed"
+                        )
                 
                 st.markdown('</div>', unsafe_allow_html=True)
                 st.markdown("<br>", unsafe_allow_html=True)
@@ -1182,10 +1105,10 @@ Visit us for all your appliance parts and expert advice.
         
         with col2:
             report_text = f"""DIAGNOSTIC REPORT
-Employee: {st.session_state.employee_number}
-Problem Identifier: {st.session_state.problem_identifier}
+Tech: {st.session_state.tech_name}
+Job: {st.session_state.job_number}
 Model: {st.session_state.model_number}
-Problem: {st.session_state.problem_description}
+Symptoms: {st.session_state.problem_description}
 Generated: {diagnosis['timestamp']}
 
 {diagnosis['full_analysis']}
@@ -1202,15 +1125,14 @@ Generated: {diagnosis['timestamp']}
             if st.button("📞 Contact Technician", use_container_width=True):
                 st.info("📞 **Need professional help?** Contact Rochester Appliance or a certified appliance technician in your area.")
     
-    # Professional footer
+    # Footer
     st.markdown("---")
     st.markdown("""
-        <div style="text-align: center; padding: 24px; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); 
-                    border-radius: 12px; margin-top: 40px;">
-            <p style="color: #64748b; font-size: 13px; margin: 0;">
-                <strong style="color: #1e293b;">TechCheck Pilot</strong> • Powered by OpenAI GPT-4 Turbo<br>
-                Built for Rochester Appliance • Version 1.0.0 Pilot<br>
-                <span style="font-size: 11px;">All diagnostic information is AI-generated. Please verify with a professional technician for complex repairs.</span>
+        <div style="text-align: center; padding: 20px; background: #f8fafc; 
+                    border-radius: 10px; margin-top: 32px;">
+            <p style="color: #64748b; font-size: 12px; margin: 0;">
+                <strong style="color: #1e293b;">TechCheckPilot</strong> — Some diagnostic information is AI-generated. 
+                Please verify with a professional technician for complex repairs.
             </p>
         </div>
     """, unsafe_allow_html=True)
