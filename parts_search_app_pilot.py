@@ -691,7 +691,26 @@ Visit us for all your appliance parts and expert advice.
     
     # Main input section
     if not st.session_state.diagnostic_complete:
-        st.markdown("## 🏷️ Enter Appliance Information")
+        st.markdown("## 🏷️ Enter Information")
+        
+        # Employee and Problem Identifier
+        col_emp, col_prob = st.columns(2)
+        
+        with col_emp:
+            employee_number = st.text_input(
+                "Employee Number *",
+                placeholder="e.g., EMP12345",
+                help="Enter your employee ID"
+            )
+        
+        with col_prob:
+            problem_identifier = st.text_input(
+                "Problem Identifier *",
+                placeholder="e.g., TICKET-2024-001",
+                help="Case or ticket number"
+            )
+        
+        st.markdown("### 🏷️ Appliance Information")
         
         col1, col2 = st.columns([2, 1])
         
@@ -747,8 +766,13 @@ Visit us for all your appliance parts and expert advice.
         
         st.markdown("---")
         
-        # Diagnose button
-        can_diagnose = bool(model_number and model_number.strip() and problem_description and problem_description.strip())
+        # Diagnose button - now requires all 4 fields
+        can_diagnose = bool(
+            employee_number and employee_number.strip() and
+            problem_identifier and problem_identifier.strip() and
+            model_number and model_number.strip() and 
+            problem_description and problem_description.strip()
+        )
         
         col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
         
@@ -781,6 +805,8 @@ Visit us for all your appliance parts and expert advice.
                 
                 st.session_state.diagnosis = diagnosis
                 st.session_state.diagnostic_complete = True
+                st.session_state.employee_number = employee_number
+                st.session_state.problem_identifier = problem_identifier
                 st.session_state.model_number = model_number
                 st.session_state.problem_description = problem_description
                 
@@ -789,7 +815,7 @@ Visit us for all your appliance parts and expert advice.
                 st.rerun()
         
         if not can_diagnose:
-            st.warning("⚠️ Please enter both model number and problem description.")
+            st.warning("⚠️ Please fill in all required fields: Employee Number, Problem Identifier, Model Number, and Problem Description.")
     
     # Display diagnostic results
     else:
@@ -803,6 +829,9 @@ Visit us for all your appliance parts and expert advice.
         st.markdown(f"""
             <div class="gradient-header">
                 <h2 style="margin: 0; font-size: 28px;">🔬 Diagnostic Results</h2>
+                <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.8;">
+                    Employee: {st.session_state.employee_number} • Case: {st.session_state.problem_identifier}
+                </p>
                 <p style="margin: 12px 0 0 0; font-size: 18px; font-weight: 600;">
                     Model: {st.session_state.model_number}
                 </p>
@@ -1153,6 +1182,8 @@ Visit us for all your appliance parts and expert advice.
         
         with col2:
             report_text = f"""DIAGNOSTIC REPORT
+Employee: {st.session_state.employee_number}
+Problem Identifier: {st.session_state.problem_identifier}
 Model: {st.session_state.model_number}
 Problem: {st.session_state.problem_description}
 Generated: {diagnosis['timestamp']}
