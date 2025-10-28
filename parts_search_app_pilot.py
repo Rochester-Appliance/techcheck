@@ -611,10 +611,10 @@ def display_probability_badge(percent: int):
 
 # Main app
 def main():
-    # Compressed header - single line
+    # Compressed header - single line, closer to top
     st.markdown("""
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                    color: white; padding: 20px; border-radius: 12px; margin: 16px 0; text-align: center;">
+                    color: white; padding: 20px; border-radius: 12px; margin: 0 0 16px 0; text-align: center;">
             <h1 style="font-size: 24px; margin: 0; font-weight: 700;">
                 🔧 TechCheckPilot — Diagnostics with probability analysis
             </h1>
@@ -770,11 +770,11 @@ Visit us for all your appliance parts and expert advice.
                     status_text = st.empty()
                     
                     # Enhanced loading with better messages
-                    status_text.markdown("**🧠 Analyzing with GPT-5 reasoning...**")
+                    status_text.markdown("**🔍 Analyzing symptoms and failure modes...**")
                     progress_bar.progress(30)
                     time.sleep(0.4)
                     
-                    status_text.markdown("**🌐 Searching web for latest repair data...**")
+                    status_text.markdown("**📊 Gathering repair data and part information...**")
                     progress_bar.progress(60)
                     time.sleep(0.3)
                     
@@ -923,11 +923,25 @@ Visit us for all your appliance parts and expert advice.
                         st.markdown("---")
                         
                         # Action chips REORDERED: Verify, Part #, Video, Details
+                        # Initialize toggle states
+                        if f"show_verify_{idx}" not in st.session_state:
+                            st.session_state[f"show_verify_{idx}"] = False
+                        if f"show_parts_{idx}" not in st.session_state:
+                            st.session_state[f"show_parts_{idx}"] = False
+                        if f"show_video_{idx}" not in st.session_state:
+                            st.session_state[f"show_video_{idx}"] = False
+                        if f"show_details_{idx}" not in st.session_state:
+                            st.session_state[f"show_details_{idx}"] = False
+                        
                         st.markdown("**📋 Solution Details:**")
                         col1, col2, col3, col4 = st.columns(4)
                         
                         with col1:
                             if st.button("✅ Verify", key=f"verify_{idx}", use_container_width=True):
+                                # Toggle this button
+                                st.session_state[f"show_verify_{idx}"] = not st.session_state[f"show_verify_{idx}"]
+                            
+                            if st.session_state[f"show_verify_{idx}"]:
                                 if issue_details['verify_steps']:
                                     st.markdown("### ✅ Verification Steps")
                                     st.markdown("*Complete these checks to confirm the diagnosis:*")
@@ -950,6 +964,10 @@ Visit us for all your appliance parts and expert advice.
                         
                         with col2:
                             if st.button("🔩 Part #", key=f"parts_{idx}", use_container_width=True):
+                                # Toggle this button
+                                st.session_state[f"show_parts_{idx}"] = not st.session_state[f"show_parts_{idx}"]
+                            
+                            if st.session_state[f"show_parts_{idx}"]:
                                 if issue_details['parts']:
                                     st.markdown("### 🔩 Parts Needed")
                                     for part_idx, part in enumerate(issue_details['parts'], 1):
@@ -974,6 +992,10 @@ Visit us for all your appliance parts and expert advice.
                         
                         with col3:
                             if st.button("🎥 Video", key=f"video_{idx}", use_container_width=True):
+                                # Toggle this button
+                                st.session_state[f"show_video_{idx}"] = not st.session_state[f"show_video_{idx}"]
+                            
+                            if st.session_state[f"show_video_{idx}"]:
                                 st.markdown("### 🎥 Video Tutorials")
                                 st.markdown("*Click to watch repair guides on YouTube:*")
                                 
@@ -1003,6 +1025,10 @@ Visit us for all your appliance parts and expert advice.
                         
                         with col4:
                             if st.button("📖 Details", key=f"details_{idx}", use_container_width=True):
+                                # Toggle this button
+                                st.session_state[f"show_details_{idx}"] = not st.session_state[f"show_details_{idx}"]
+                            
+                            if st.session_state[f"show_details_{idx}"]:
                                 if issue_details['repair_steps']:
                                     st.markdown("### 📖 Step-by-Step Repair Guide")
                                     st.markdown(f"*Follow these {len(issue_details['repair_steps'])} steps carefully:*")
