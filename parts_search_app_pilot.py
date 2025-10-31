@@ -29,6 +29,10 @@ st.markdown("""
     .stApp {
         background: linear-gradient(180deg, #fafafa 0%, #f1f5f9 100%) !important;
     }
+
+    .main .block-container {
+        padding-top: 8px !important;
+    }
     
     /* Hide Streamlit branding */
     #MainMenu {visibility: hidden;}
@@ -99,24 +103,62 @@ st.markdown("""
         background: #e2e8f0;
         border: 1px solid #cbd5e1;
         border-radius: 12px;
-        padding: 12px 18px;
-        min-width: 90px;
+        padding: 8px 14px;
+        min-width: 72px;
     }
     
     .prob-value {
-        font-size: 32px;
+        font-size: 24px;
         font-weight: 900;
         color: #1e293b;
-        line-height: 1;
+        line-height: 1.05;
     }
     
     .prob-label {
-        font-size: 9px;
+        font-size: 8.5px;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.1em;
         color: #64748b;
-        margin-top: 4px;
+        margin-top: 2px;
         font-weight: 700;
+    }
+
+    .prob-percent-symbol {
+        font-size: 14px;
+        margin-left: 1px;
+    }
+
+    .section-heading {
+        margin: 10px 0 6px 0;
+    }
+
+    .section-heading.section-heading--causes {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .section-heading.section-heading--causes h2 {
+        font-size: 20px !important;
+        margin: 0;
+        font-weight: 700;
+        color: #0f172a !important;
+    }
+
+    .section-heading.section-heading--causes::after {
+        content: "";
+        flex: 1;
+        height: 2px;
+        background: linear-gradient(90deg, rgba(148,163,184,0.6), rgba(226,232,240,0));
+        border-radius: 999px;
+    }
+
+    .divider-tight {
+        width: 100%;
+        height: 1px;
+        background: linear-gradient(90deg, #e2e8f0 0%, rgba(226,232,240,0));
+        margin: 12px 0;
     }
     
     /* CAUSE CARDS - Match React styling */
@@ -124,9 +166,86 @@ st.markdown("""
         background: #ffffff;
         border: 1px solid #cbd5e1;
         border-radius: 16px;
-        padding: 24px;
-        margin: 20px 0;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        padding: 16px 18px;
+        margin: 14px 0;
+        box-shadow: 0 1px 10px rgba(0,0,0,0.04);
+    }
+
+    .cause-card h3 {
+        margin: 0 0 6px 0 !important;
+        font-size: 18px;
+    }
+
+    .cause-card p {
+        margin: 2px 0 6px 0;
+    }
+
+    .cause-card .streamlit-expanderHeader {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%) !important;
+        border: 1px solid #3b82f6 !important;
+        border-radius: 12px !important;
+        padding: 14px 18px !important;
+        font-weight: 700 !important;
+        color: #1e3a8a !important;
+        box-shadow: 0 6px 14px rgba(59,130,246,0.18) !important;
+        transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    }
+
+    .cause-card .streamlit-expanderHeader:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 20px rgba(59,130,246,0.22) !important;
+    }
+
+    .resolution-controls {
+        display: block;
+        margin-bottom: 6px;
+    }
+
+    .resolution-controls [role="radiogroup"] {
+        display: grid;
+        gap: 10px;
+    }
+
+    .resolution-controls [role="radiogroup"] label {
+        align-items: stretch !important;
+        padding: 0 !important;
+    }
+
+    .resolution-controls [role="radiogroup"] label > div:first-of-type {
+        display: none !important;
+    }
+
+    .resolution-controls [role="radiogroup"] label input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .resolution-controls [role="radiogroup"] label > div:last-of-type {
+        position: relative;
+        border-radius: 14px;
+        padding: 16px;
+        font-size: 15px;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+        border: 2px solid transparent;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .resolution-controls [role="radiogroup"] label:first-of-type > div:last-of-type {
+        background: #ecfdf5;
+        border-color: #bbf7d0;
+    }
+
+    .resolution-controls [role="radiogroup"] label:last-of-type > div:last-of-type {
+        background: #fff7ed;
+        border-color: #fed7aa;
+    }
+
+    .resolution-controls [role="radiogroup"] label input:checked + div {
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+        transform: translateY(-1px);
+        border-color: #0f172a;
     }
     
     .cause-high {
@@ -340,6 +459,48 @@ st.markdown("""
     a:hover {
         color: #2563eb !important;
         text-decoration: underline !important;
+    }
+
+    div[data-testid="stDownloadButton"] button {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+        color: #f8fafc !important;
+        border: none !important;
+        border-radius: 14px !important;
+        padding: 16px !important;
+        font-size: 16px !important;
+        font-weight: 700 !important;
+        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.35) !important;
+        transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    }
+
+    div[data-testid="stDownloadButton"] button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 28px rgba(37, 99, 235, 0.45) !important;
+    }
+
+    .contact-cta {
+        display: block;
+        width: 100%;
+        padding: 16px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        color: #7c2d12 !important;
+        text-align: center;
+        font-size: 15px;
+        font-weight: 700;
+        box-shadow: 0 8px 18px rgba(124, 45, 18, 0.18);
+        border: 2px solid #f59e0b;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .contact-cta:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 24px rgba(124, 45, 18, 0.2);
+        text-decoration: none !important;
+    }
+
+    a[href*="share.streamlit.io"], img[alt="App Creator Avatar"] {
+        display: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -604,7 +765,7 @@ def display_probability_badge(percent: int):
     """Display React-style probability badge"""
     st.markdown(f"""
         <div class="prob-badge">
-            <div class="prob-value">{percent}<span style="font-size:18px;">%</span></div>
+            <div class="prob-value">{percent}<span class="prob-percent-symbol">%</span></div>
             <div class="prob-label">PROBABILITY</div>
         </div>
     """, unsafe_allow_html=True)
@@ -614,7 +775,7 @@ def main():
     # Compressed header - single line, closer to top
     st.markdown("""
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                    color: white; padding: 20px; border-radius: 12px; margin: 0 0 16px 0; text-align: center;">
+                    color: white; padding: 12px 18px; border-radius: 12px; margin: 4px 0 12px 0; text-align: center;">
             <h1 style="font-size: 24px; margin: 0; font-weight: 700;">
                 🔧 TechCheckPilot — Diagnostics with probability analysis
             </h1>
@@ -814,7 +975,7 @@ Visit us for all your appliance parts and expert advice.
         # Results header
         st.markdown(f"""
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                        color: white; padding: 20px; border-radius: 12px; margin: 16px 0; text-align: center;">
+                        color: white; padding: 18px; border-radius: 12px; margin: 8px 0 10px 0; text-align: center;">
                 <h2 style="margin: 0; font-size: 24px; font-weight: 700;">🔬 Diagnostic Results</h2>
                 <p style="margin: 8px 0 0 0; font-size: 13px; opacity: 0.85;">
                     Tech: {st.session_state.tech_name} • Job: {st.session_state.job_number}
@@ -834,10 +995,10 @@ Visit us for all your appliance parts and expert advice.
             
             with col_stat1:
                 st.markdown("""
-                <div style="background: white; padding: 16px; border-radius: 10px; text-align: center; border: 2px solid #e2e8f0;">
-                    <div style="font-size: 32px; font-weight: 800; color: #3b82f6;">
+                <div style="background: white; padding: 10px 12px; border-radius: 10px; text-align: center; border: 2px solid #e2e8f0;">
+                    <div style="font-size: 24px; font-weight: 800; color: #3b82f6; line-height: 1.1;">
                         {}</div>
-                    <div style="font-size: 13px; color: #64748b; margin-top: 4px;">
+                    <div style="font-size: 12px; color: #64748b; margin-top: 2px; letter-spacing: 0.02em;">
                         Probable Causes</div>
                 </div>
                 """.format(len(diagnosis["probabilities"])), unsafe_allow_html=True)
@@ -845,10 +1006,10 @@ Visit us for all your appliance parts and expert advice.
             with col_stat2:
                 top_prob = diagnosis["probabilities"][0][0]
                 st.markdown("""
-                <div style="background: white; padding: 16px; border-radius: 10px; text-align: center; border: 2px solid #e2e8f0;">
-                    <div style="font-size: 32px; font-weight: 800; color: #ef4444;">
+                <div style="background: white; padding: 10px 12px; border-radius: 10px; text-align: center; border: 2px solid #e2e8f0;">
+                    <div style="font-size: 24px; font-weight: 800; color: #ef4444; line-height: 1.1;">
                         {}%</div>
-                    <div style="font-size: 13px; color: #64748b; margin-top: 4px;">
+                    <div style="font-size: 12px; color: #64748b; margin-top: 2px; letter-spacing: 0.02em;">
                         Top Probability</div>
                 </div>
                 """.format(top_prob), unsafe_allow_html=True)
@@ -865,22 +1026,31 @@ Visit us for all your appliance parts and expert advice.
                     total_sources += len(details.get("video_searches", []))
                 
                 st.markdown("""
-                <div style="background: white; padding: 16px; border-radius: 10px; text-align: center; border: 2px solid #e2e8f0;">
-                    <div style="font-size: 32px; font-weight: 800; color: #10b981;">
+                <div style="background: white; padding: 10px 12px; border-radius: 10px; text-align: center; border: 2px solid #e2e8f0;">
+                    <div style="font-size: 24px; font-weight: 800; color: #10b981; line-height: 1.1;">
                         {}</div>
-                    <div style="font-size: 13px; color: #64748b; margin-top: 4px;">
+                    <div style="font-size: 12px; color: #64748b; margin-top: 2px; letter-spacing: 0.02em;">
                         Total Sources</div>
                 </div>
                 """.format(total_sources), unsafe_allow_html=True)
             
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
         
         # Display probability distribution
         if diagnosis.get("probabilities"):
-            st.markdown("## 🎯 Probable Causes (Ranked by Likelihood)")
+            st.markdown(
+                """
+                <div class="section-heading section-heading--causes">
+                    <h2>🎯 Probable Causes (Ranked by Likelihood)</h2>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
             
             # Display top 3 causes
             for idx, (percent, title, desc) in enumerate(diagnosis["probabilities"][:3]):
+                anchor_id = f"cause-{idx}"
+                st.markdown(f"<div id='{anchor_id}'></div>", unsafe_allow_html=True)
                 # Determine styling
                 if percent >= 40:
                     card_class = "cause-high"
@@ -920,7 +1090,7 @@ Visit us for all your appliance parts and expert advice.
                             st.markdown("**About This Issue:**")
                             st.info(issue_details['explanation'])
                         
-                        st.markdown("---")
+                        st.markdown("<div class='divider-tight'></div>", unsafe_allow_html=True)
                         
                         # Action chips REORDERED: Verify, Part #, Video, Details
                         # Initialize toggle states
@@ -940,6 +1110,7 @@ Visit us for all your appliance parts and expert advice.
                             if st.button("✅ Verify", key=f"verify_{idx}", use_container_width=True):
                                 # Toggle this button
                                 st.session_state[f"show_verify_{idx}"] = not st.session_state[f"show_verify_{idx}"]
+                                st.session_state["scroll_target"] = anchor_id
                             
                             if st.session_state[f"show_verify_{idx}"]:
                                 if issue_details['verify_steps']:
@@ -966,6 +1137,7 @@ Visit us for all your appliance parts and expert advice.
                             if st.button("🔩 Part #", key=f"parts_{idx}", use_container_width=True):
                                 # Toggle this button
                                 st.session_state[f"show_parts_{idx}"] = not st.session_state[f"show_parts_{idx}"]
+                                st.session_state["scroll_target"] = anchor_id
                             
                             if st.session_state[f"show_parts_{idx}"]:
                                 if issue_details['parts']:
@@ -994,6 +1166,7 @@ Visit us for all your appliance parts and expert advice.
                             if st.button("🎥 Video", key=f"video_{idx}", use_container_width=True):
                                 # Toggle this button
                                 st.session_state[f"show_video_{idx}"] = not st.session_state[f"show_video_{idx}"]
+                                st.session_state["scroll_target"] = anchor_id
                             
                             if st.session_state[f"show_video_{idx}"]:
                                 st.markdown("### 🎥 Video Tutorials")
@@ -1027,6 +1200,7 @@ Visit us for all your appliance parts and expert advice.
                             if st.button("📖 Details", key=f"details_{idx}", use_container_width=True):
                                 # Toggle this button
                                 st.session_state[f"show_details_{idx}"] = not st.session_state[f"show_details_{idx}"]
+                                st.session_state["scroll_target"] = anchor_id
                             
                             if st.session_state[f"show_details_{idx}"]:
                                 if issue_details['repair_steps']:
@@ -1054,7 +1228,7 @@ Visit us for all your appliance parts and expert advice.
                         # NO vendor links section - removed per manager request
                         
                         # Outcome tracking - Radio buttons in colored box
-                        st.markdown("---")
+                        st.markdown("<div class='divider-tight'></div>", unsafe_allow_html=True)
                         
                         # Initialize outcome state for this solution
                         outcome_key = f"outcome_{idx}"
@@ -1074,12 +1248,12 @@ Visit us for all your appliance parts and expert advice.
                         
                         st.markdown(f"""
                         <div style="background: {box_color}; border: 2px solid {border_color}; 
-                                    border-radius: 10px; padding: 16px; margin: 12px 0;">
-                            <strong style="color: #1e293b; font-size: 14px;">📊 Did this recommendation resolve the problem?</strong>
+                                    border-radius: 12px; padding: 14px 18px; margin: 12px 0 6px 0;">
+                            <strong style="color: #1e293b; font-size: 15px;">📊 Did this recommendation resolve the problem?</strong>
                         </div>
                         """, unsafe_allow_html=True)
-                        
-                        # Radio buttons for outcome
+
+                        st.markdown("<div class='resolution-controls'>", unsafe_allow_html=True)
                         outcome = st.radio(
                             "Select outcome:",
                             options=["Yes, resolved", "No, not resolved"],
@@ -1087,10 +1261,27 @@ Visit us for all your appliance parts and expert advice.
                             horizontal=False,
                             label_visibility="collapsed"
                         )
+                        st.markdown("</div>", unsafe_allow_html=True)
                 
                 st.markdown('</div>', unsafe_allow_html=True)
-                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
             
+            scroll_target = st.session_state.pop("scroll_target", None)
+            if scroll_target:
+                scroll_script = """
+                    <script>
+                        const targetId = {target_json};
+                        const el = document.getElementById(targetId);
+                        if (el) {{
+                            setTimeout(() => {{
+                                el.scrollIntoView({{behavior: 'instant', block: 'start'}});
+                            }}, 60);
+                        }}
+                    </script>
+                """.format(target_json=json.dumps(scroll_target))
+
+                st.markdown(scroll_script, unsafe_allow_html=True)
+
             # Escalation card if more than 3 issues
             if len(diagnosis["probabilities"]) > 3:
                 st.markdown("""
@@ -1144,12 +1335,20 @@ Generated: {diagnosis['timestamp']}
                 data=report_text,
                 file_name=f"diagnostic_{st.session_state.model_number}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
                 mime="text/plain",
-                use_container_width=True
+                use_container_width=True,
+                key="download_report",
+                type="primary"
             )
         
         with col3:
-            if st.button("📞 Contact Technician", use_container_width=True):
-                st.info("📞 **Need professional help?** Contact Rochester Appliance or a certified appliance technician in your area.")
+            st.markdown(
+                """
+                <a class="contact-cta" href="tel:5858806144">
+                    📞 Contact Dean at 585-880-6144
+                </a>
+                """,
+                unsafe_allow_html=True,
+            )
     
     # Footer
     st.markdown("---")
