@@ -4,6 +4,7 @@
 # But track these files
 !parts_search_app_pilot.py
 !requirements.txt
+!codebase_migration_plan.md
 !.gitignore
 
 # Ignore common development files
