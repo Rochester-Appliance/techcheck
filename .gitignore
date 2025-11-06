@@ -5,6 +5,9 @@
 !parts_search_app_pilot.py
 !requirements.txt
 !codebase_migration_plan.md
+!disgnostic_app/
+!disgnostic_app/**
+disgnostic_app/context/
 !.gitignore
 
 # Ignore common development files
