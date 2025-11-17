@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { api } from "./api";
 import DiagnosisForm from "./components/DiagnosisForm";
+import DiagramGallery from "./components/DiagramGallery";
 import LoadingOverlay from "./components/LoadingOverlay";
 import ProbabilityCard from "./components/ProbabilityCard";
 import StatsSummary from "./components/StatsSummary";
@@ -10,6 +11,7 @@ import {
   DiagnosisFormValues,
   DiagnosisRequest,
   DiagnosisResponse,
+  DiagramBundleResponse,
   OutcomeStatus,
 } from "./types";
 import { createReportContent, downloadReport, sleep } from "./utils";
@@ -26,6 +28,20 @@ const emptyForm: DiagnosisFormValues = {
 const trimSymptom = (value: string, length = 160) =>
   value.length > length ? `${value.slice(0, length)}…` : value;
 
+type DiagramLookupState = {
+  status: "idle" | "loading" | "error" | "ready";
+  data: DiagramBundleResponse | null;
+  error: string | null;
+  requestedModel: string | null;
+};
+
+const initialDiagramState: DiagramLookupState = {
+  status: "idle",
+  data: null,
+  error: null,
+  requestedModel: null,
+};
+
 function App() {
   const [formValues, setFormValues] = useState<DiagnosisFormValues>(emptyForm);
   const [diagnosis, setDiagnosis] = useState<DiagnosisResponse | null>(null);
@@ -33,6 +49,9 @@ function App() {
   const [loadingStage, setLoadingStage] = useState("Analyzing symptoms...");
   const [error, setError] = useState<string | null>(null);
   const [outcomes, setOutcomes] = useState<Record<string, OutcomeStatus>>({});
+  const [diagramState, setDiagramState] = useState<DiagramLookupState>({
+    ...initialDiagramState,
+  });
 
   const hasResults = Boolean(diagnosis);
 
@@ -50,6 +69,42 @@ function App() {
     setFormValues(values);
   };
 
+  const resetDiagramState = () => {
+    setDiagramState({ ...initialDiagramState });
+  };
+
+  const loadDiagramData = useCallback(async (modelNumber: string) => {
+    const trimmed = modelNumber.trim();
+    if (!trimmed) {
+      setDiagramState({ ...initialDiagramState });
+      return;
+    }
+
+    setDiagramState({
+      status: "loading",
+      data: null,
+      error: null,
+      requestedModel: trimmed,
+    });
+
+    try {
+      const bundle = await api.fetchDiagramBundle(trimmed);
+      setDiagramState({
+        status: "ready",
+        data: bundle,
+        error: null,
+        requestedModel: trimmed,
+      });
+    } catch (err) {
+      setDiagramState({
+        status: "error",
+        data: null,
+        error: err instanceof Error ? err.message : "Failed to load diagrams",
+        requestedModel: trimmed,
+      });
+    }
+  }, []);
+
   const handleOutcomeChange = (title: string, status: OutcomeStatus) => {
     setOutcomes((prev) => ({ ...prev, [title]: status }));
   };
@@ -59,12 +114,20 @@ function App() {
     setError(null);
     setLoading(true);
     setLoadingStage("Analyzing symptoms & failure modes...");
+    resetDiagramState();
+
+    const trimmedTech = values.techName.trim();
+    const trimmedJob = values.jobNumber.trim();
+    const trimmedModel = values.modelNumber.trim();
+    const trimmedProblem = values.problemDescription.trim();
+
+    void loadDiagramData(trimmedModel);
 
     const payload: DiagnosisRequest = {
-      tech_name: values.techName.trim(),
-      job_number: values.jobNumber.trim(),
-      model_number: values.modelNumber.trim(),
-      problem_description: values.problemDescription.trim(),
+      tech_name: trimmedTech,
+      job_number: trimmedJob,
+      model_number: trimmedModel,
+      problem_description: trimmedProblem,
     };
 
     try {
@@ -79,6 +142,7 @@ function App() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unexpected error");
       setDiagnosis(null);
+      resetDiagramState();
     } finally {
       setLoading(false);
       setLoadingStage("Analyzing symptoms...");
@@ -90,6 +154,7 @@ function App() {
     setOutcomes({});
     setFormValues(emptyForm);
     setError(null);
+    resetDiagramState();
   };
 
   const handleDownloadReport = () => {
@@ -127,6 +192,19 @@ function App() {
           onSubmit={handleSubmit}
           loading={loading}
         />
+
+      <DiagramGallery
+        status={diagramState.status}
+        bundle={diagramState.data}
+        error={diagramState.error}
+        requestedModel={diagramState.requestedModel}
+        onRetry={() => {
+          const model = diagnosis?.model_number || formValues.modelNumber.trim();
+          if (model) {
+            void loadDiagramData(model);
+          }
+        }}
+      />
 
         {hasResults && diagnosis && jobSummary && (
           <>

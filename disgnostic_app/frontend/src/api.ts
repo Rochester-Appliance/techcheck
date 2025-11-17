@@ -1,6 +1,11 @@
 import axios from "axios";
 
-import { DiagnosisRequest, DiagnosisResponse, IssueDetails } from "./types";
+import {
+  DiagnosisRequest,
+  DiagnosisResponse,
+  DiagramBundleResponse,
+  IssueDetails,
+} from "./types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
@@ -50,5 +55,22 @@ export const fetchIssueDetails = async (
   }
 };
 
-export const api = { diagnose, fetchIssueDetails };
+export const fetchDiagramBundle = async (
+  model_number: string,
+  max_diagrams = 6,
+  max_parts_per_diagram = 12,
+): Promise<DiagramBundleResponse> => {
+  try {
+    const { data } = await client.post<DiagramBundleResponse>("/parts/diagrams", {
+      model_number,
+      max_diagrams,
+      max_parts_per_diagram,
+    });
+    return data;
+  } catch (error) {
+    throw new Error(extractErrorMessage(error));
+  }
+};
+
+export const api = { diagnose, fetchIssueDetails, fetchDiagramBundle };
 

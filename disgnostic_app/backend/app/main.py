@@ -13,7 +13,10 @@ from .schemas import (
     DiagnosisResponse,
     IssueDetailResponse,
     IssueDetailsRequest,
+    DiagramBundleRequest,
+    DiagramBundleResponse,
 )
+from .vnv_client import VNVClientError, get_vnv_client
 
 
 logger = logging.getLogger(__name__)
@@ -66,6 +69,26 @@ async def get_issue_details(payload: IssueDetailsRequest) -> IssueDetailResponse
         payload.issue,
     )
     return IssueDetailResponse(details=details)
+
+
+@app.post("/parts/diagrams", response_model=DiagramBundleResponse, tags=["parts"])
+async def fetch_parts_diagrams(payload: DiagramBundleRequest) -> DiagramBundleResponse:
+    client = get_vnv_client()
+    try:
+        bundle = await run_in_threadpool(
+            client.fetch_diagram_bundle,
+            payload.model_number,
+            payload.max_diagrams,
+            payload.max_parts_per_diagram,
+        )
+    except VNVClientError as exc:
+        logger.warning("V&V lookup failed: %s", exc)
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("Unexpected V&V integration error")
+        raise HTTPException(status_code=500, detail="Parts diagram lookup failed") from exc
+
+    return DiagramBundleResponse.model_validate(bundle)
 
 
 __all__ = ["app"]

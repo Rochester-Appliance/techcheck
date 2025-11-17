@@ -34,6 +34,37 @@ export interface DiagnosisResponse {
   job_number?: string | null;
 }
 
+export interface VNVPartSummary {
+  item_number: string;
+  part_number: string;
+  description?: string | null;
+  qty_available?: number | null;
+  price?: number | null;
+  list_price?: number | null;
+  url?: string | null;
+  image_urls: string[];
+}
+
+export interface VNVDiagramSummary {
+  diagram_id: number;
+  section_name: string;
+  small_image_url?: string | null;
+  large_image_url?: string | null;
+  parts: VNVPartSummary[];
+}
+
+export interface VNVModelSummary {
+  model_number: string;
+  model_description?: string | null;
+  manufacturer?: string | null;
+  model_id: number;
+}
+
+export interface DiagramBundleResponse {
+  model: VNVModelSummary;
+  diagrams: VNVDiagramSummary[];
+}
+
 export interface DiagnosisRequest {
   tech_name: string;
   job_number: string;

@@ -128,7 +128,9 @@ def extract_issue_details(full_analysis: str, issue_title: str) -> IssueDetails:
     explanation = _extract(
         [
             r"\*\*Detailed Explanation:\*\*(.*?)(?=\*\*|$)",
+            r"\*\*Failure Signals?\s*/\s*Why it matches:\*\*(.*?)(?=\*\*|$)",
             r"Detailed Explanation:\s*(.*?)(?=\n\s*[A-Z][^:]{0,40}:|$)",
+            r"Failure Signals?\s*/\s*Why it matches:\s*(.*?)(?=\n\s*[A-Z][^:]{0,40}:|$)",
         ],
         section,
     )
@@ -142,35 +144,45 @@ def extract_issue_details(full_analysis: str, issue_title: str) -> IssueDetails:
     parts_block = _extract(
         [
             r"\*\*Parts Needed:\*\*(.*?)(?=\*\*|$)",
+            r"\*\*Parts\s*\+\s*Compatibility Notes:\*\*(.*?)(?=\*\*|$)",
             r"Parts Needed:\s*(.*?)(?=\n\s*(?:Verification|Step|Safety|Video)[^\n]*:|$)",
+            r"Parts\s*\+\s*Compatibility Notes:\s*(.*?)(?=\n\s*(?:Verification|Step|Safety|Video)[^\n]*:|$)",
         ],
         section,
     ) or ""
     verify_block = _extract(
         [
             r"\*\*Verification Steps:\*\*(.*?)(?=\*\*|$)",
+            r"\*\*Verification Checklist:\*\*(.*?)(?=\*\*|$)",
             r"Verification Steps:\s*(.*?)(?=\n\s*(?:Step-by-Step|Safety|Video|Parts)[^\n]*:|$)",
+            r"Verification Checklist:\s*(.*?)(?=\n\s*(?:Step-by-Step|Safety|Video|Parts)[^\n]*:|$)",
         ],
         section,
     ) or ""
     repair_block = _extract(
         [
             r"\*\*Step-by-Step Repair:\*\*(.*?)(?=\*\*|$)",
+            r"\*\*Step-by-Step Repair\s*/\s*Remedy:\*\*(.*?)(?=\*\*|$)",
             r"Step[- ]by[- ]Step Repair:\s*(.*?)(?=\n\s*(?:Safety|Video|Verification|Parts)[^\n]*:|$)",
+            r"Step[- ]by[- ]Step Repair\s*/\s*Remedy:\s*(.*?)(?=\n\s*(?:Safety|Video|Verification|Parts)[^\n]*:|$)",
         ],
         section,
     ) or ""
     safety_block = _extract(
         [
             r"\*\*Safety Warnings?:\*\*(.*?)(?=\*\*|$)",
+            r"\*\*Safety\s*/\s*Gotchas:\*\*(.*?)(?=\*\*|$)",
             r"Safety Warnings?:\s*(.*?)(?=\n\s*(?:Video|Step|Parts|Verification)[^\n]*:|$)",
+            r"Safety\s*/\s*Gotchas:\s*(.*?)(?=\n\s*(?:Video|Step|Parts|Verification)[^\n]*:|$)",
         ],
         section,
     ) or ""
     video_block = _extract(
         [
             r"\*\*Video Resources?:\*\*(.*?)(?=\*\*|$)",
+            r"\*\*Video\s*/\s*Further Study:\*\*(.*?)(?=\*\*|$)",
             r"Video Resources?:\s*(.*)$",
+            r"Video\s*/\s*Further Study:\s*(.*)$",
         ],
         section,
     ) or ""
@@ -204,55 +216,77 @@ def perform_diagnostic_analysis(
     if client is None:
         client = get_openai_client()
 
-    diagnostic_prompt = f"""You are an expert appliance repair technician with 20+ years experience.
+    job_context_lines: List[str] = []
+    if tech_name:
+        job_context_lines.append(f"Technician on site: {tech_name}")
+    if job_number:
+        job_context_lines.append(f"Job/WO #: {job_number}")
+    job_context = "\n".join(job_context_lines) if job_context_lines else "Technician/job identifiers not provided."
 
-Model: {model_number}
-Problem: {problem_description}
+    diagnostic_prompt = f"""You are an expert appliance repair technician with 20+ years of field calls on refrigerators, laundry units, cooking appliances and HVAC-adjacent systems.
 
-Search the web for the latest repair information, part numbers, and troubleshooting guides for this specific model.
+Model Number: {model_number}
+Reported Symptoms (verbatim from technician/customer): {problem_description}
+Job Context: {job_context}
 
-Provide a HIGHLY DETAILED diagnostic analysis in this EXACT format:
+Your task:
+- Use the latest field intelligence, service bulletins, and parts data for THIS exact model/suffix.
+- Run web_search when you need additional confirmation on known failure rates, updated part supersessions, or service bulletins.
+- Produce diagnostic output that a senior field tech can follow without additional prompts.
 
-1. **PROBABILITY DISTRIBUTION** (Must sum to 100%)
-   Format: [XX%] Issue Title | One-line description
-   List 3-5 issues in descending order
+RESPONSE FORMAT (strict):
 
-2. **For EACH issue above, provide COMPLETE details:**
+1. **PROBABILITY DISTRIBUTION** (3-6 lines; must sum to 100%)
+   - Format: [XX%] Issue Title | One-line symptom link + failure mode
+   - Weight the percentages using prevalence data (common service calls, recalls, known bulletins). Call out when an issue is rare but high-impact.
 
-   **Issue: [Issue Title]**
-   
-   **Difficulty:** [X/100]
-   **Estimated Time:** [X minutes]
-   
-   **Detailed Explanation:**
-   [2-3 sentences explaining the issue and why these symptoms indicate this problem]
-   
-   **Parts Needed:**
-   - Part Name: [Exact part number if available, e.g., "5304475102"] - Description
-   - [Additional parts if needed]
-   
-   **Verification Steps:**
-   • Step 1: [Specific test to confirm issue]
-   • Step 2: [Another verification method]
-   • Step 3: [Final confirmation check]
-   
-   **Step-by-Step Repair:**
-   1. [First step with specifics]
-   2. [Second step with details]
-   3. [Continue with clear instructions]
-   
-   **Safety Warnings:**
-   - [Any electrical/mechanical safety concerns]
-   
-   **Video Resources:**
-   - Search: "[Model] [issue] repair" on YouTube
-   - Search: "[Part name] replacement tutorial"
+2. **DETAILED BREAKDOWN FOR EACH ISSUE (in descending probability)**  
+   Use the structure below for *every* issue:
 
-Repeat this format for ALL issues. Be extremely specific with part numbers, verification steps, and repair instructions."""
+   **Issue:** [Issue title]
+
+   **Failure Signals / Why it matches:**  
+   - Bullet list that ties the reported symptoms to physics of failure. Mention any audible/visual cues, ice patterns, thermal behavior, error codes, etc.
+   - Include model-specific notes (e.g., “WRS325SDHZ08 uses harness W11650662 – brown heater lead backs out.”)
+
+   **Difficulty:** [0-100] **Estimated Time:** [minutes or range]
+
+   **Parts + Compatibility Notes:**  
+   - Part #[exact number] – Description — include availability hints if known (e.g., “superseded to W11650662”, “requires matching color code”).  
+   - Mention when part numbers change by model suffix; instruct tech to confirm tag if ambiguous.  
+   - If no part is normally required, explicitly say “No replacement parts typically required.”
+
+   **Verification Checklist:**  
+   1. [Specific measurement, visual inspection, or diagnostic mode step with expected reading/value]  
+   2. [...] (include at least three verification items; note required tools such as multimeter, clamp probe, manometer, etc.)
+
+   **Step-by-Step Repair / Remedy:**  
+   1. [Action with torque/spec or caution if applicable]  
+   2. [...]  
+   3. [...]
+
+   **Safety / Gotchas:**  
+   - [List energized circuits, sharp edges, refrigerant tubing, steam, etc. Include PPE reminders.]
+
+   **Video / Further Study:**  
+   - Direct YouTube links if discovered via web search, else “Search: <recommended query>”.
+
+3. **SERVICE BULLETIN OR ESCALATION NOTES (final section)**  
+   - Mention any recalls, service flashes, firmware updates, or when to escalate to sealed-system specialist.  
+   - Highlight questions to ask the customer if data is missing (e.g., “Confirm if defrost drain ever ice-blocks”).
+
+Expectations:
+- Cite data inline when you reference bulletins or common failures (e.g., “Field bulletin W11598145” or “per Whirlpool SxS 2022 service guide”).  
+- Never hallucinate part numbers—only output ones you have high confidence in; otherwise instruct the tech to consult the parts diagram.  
+- Prefer actionable language (“Ohm the defrost heater: should read 30–40 Ω”) over generic prose.  
+- Avoid repeating identical video/search instructions for each issue—tailor them.  
+- If information is insufficient, explicitly state the assumption before proceeding."""
 
     system_prompt = (
-        "You are an expert appliance diagnostician. Provide extremely detailed, actionable guidance "
-        "with specific part numbers and step-by-step instructions."
+        "You simulate a senior master technician + technical writer. Output must strictly follow the requested "
+        "sections, be field-ready, reference model-specific nuances, and ground any recommendations in observable tests. "
+        "Prioritise clarity, numbered procedures, and accurate part numbers. Use web_search strategically for "
+        "service bulletins, superseded parts, and recent field reports."
     )
 
     message_payload = [

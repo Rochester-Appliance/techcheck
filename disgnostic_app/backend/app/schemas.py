@@ -61,6 +61,47 @@ class IssueDetailsRequest(BaseModel):
     full_analysis: str
 
 
+class VNVPart(BaseModel):
+    item_number: str = Field(default="")
+    part_number: str = Field(default="")
+    description: Optional[str] = None
+    qty_available: Optional[int] = None
+    price: Optional[float] = None
+    list_price: Optional[float] = None
+    url: Optional[str] = None
+    image_urls: List[str] = Field(default_factory=list)
+
+
+class VNVDiagram(BaseModel):
+    diagram_id: int
+    section_name: str
+    small_image_url: Optional[str] = None
+    large_image_url: Optional[str] = None
+    parts: List[VNVPart] = Field(default_factory=list)
+
+
+class VNVModel(BaseModel):
+    model_number: str
+    model_description: Optional[str] = None
+    manufacturer: Optional[str] = None
+    model_id: int
+
+
+class DiagramBundle(BaseModel):
+    model: VNVModel
+    diagrams: List[VNVDiagram]
+
+
+class DiagramBundleRequest(BaseModel):
+    model_number: str = Field(..., min_length=1)
+    max_diagrams: int = Field(default=4, ge=1, le=12)
+    max_parts_per_diagram: int = Field(default=12, ge=1, le=50)
+
+
+class DiagramBundleResponse(DiagramBundle):
+    pass
+
+
 __all__ = [
     "DiagnosisRequest",
     "DiagnosisResponse",
@@ -70,6 +111,11 @@ __all__ = [
     "IssueDetails",
     "IssueDetailResponse",
     "IssueDetailsRequest",
+    "DiagramBundleRequest",
+    "DiagramBundleResponse",
+    "VNVPart",
+    "VNVDiagram",
+    "VNVModel",
 ]
 
 

@@ -15,6 +15,7 @@ class Settings:
 
     def __init__(self) -> None:
         self._openai_api_key_env = os.getenv("OPENAI_API_KEY")
+        self._vnv_api_base_url_env = os.getenv("VNV_API_BASE_URL")
 
     @property
     def openai_api_key(self) -> Optional[str]:
@@ -24,6 +25,11 @@ class Settings:
             return API_KEY_FILE.read_text(encoding="utf-8").strip()
         except FileNotFoundError:
             return None
+
+    @property
+    def vnv_api_base_url(self) -> str:
+        base_url = self._vnv_api_base_url_env or "https://rocparts-api.onrender.com/api"
+        return base_url.rstrip("/")
 
 
 @lru_cache(maxsize=1)
