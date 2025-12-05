@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { api } from "./api";
 import DiagnosisForm from "./components/DiagnosisForm";
@@ -13,8 +13,9 @@ import {
   DiagnosisResponse,
   DiagramBundleResponse,
   OutcomeStatus,
+  SourceLink,
 } from "./types";
-import { createReportContent, downloadReport, sleep } from "./utils";
+import { collectSourceLinks, downloadReport, sanitizeRichText, sleep } from "./utils";
 
 import "./styles.css";
 
@@ -52,6 +53,7 @@ function App() {
   const [diagramState, setDiagramState] = useState<DiagramLookupState>({
     ...initialDiagramState,
   });
+  const formRef = useRef<HTMLDivElement | null>(null);
 
   const hasResults = Boolean(diagnosis);
 
@@ -64,6 +66,36 @@ function App() {
       symptoms: trimSymptom(formValues.problemDescription),
     };
   }, [diagnosis, formValues]);
+
+  const inlineSourceLinks: SourceLink[] = useMemo(
+    () => collectSourceLinks(diagnosis ?? undefined),
+    [diagnosis],
+  );
+
+  const combinedSources: SourceLink[] = useMemo(() => {
+    if (!diagnosis) return [];
+    const webSources: SourceLink[] = diagnosis.web_results.map((result) => ({
+      label: result.title || result.url,
+      url: result.url,
+      snippet: result.snippet,
+      origin: "web",
+    }));
+    const merged = new Map<string, SourceLink>();
+    inlineSourceLinks.forEach((source) => merged.set(source.url, source));
+    webSources.forEach((source) => {
+      if (!merged.has(source.url)) {
+        merged.set(source.url, source);
+      }
+    });
+    return Array.from(merged.values());
+  }, [diagnosis, inlineSourceLinks]);
+
+  const sanitizedNarrative = useMemo(
+    () => (diagnosis ? sanitizeRichText(diagnosis.full_analysis) : ""),
+    [diagnosis],
+  );
+
+  const sourceCount = diagnosis ? combinedSources.length : 0;
 
   const handleFormChange = (values: DiagnosisFormValues) => {
     setFormValues(values);
@@ -159,9 +191,14 @@ function App() {
 
   const handleDownloadReport = () => {
     if (!diagnosis) return;
-    const content = createReportContent(formValues, diagnosis);
-    const filename = `diagnostic_${diagnosis.model_number}_${Date.now()}.txt`;
-    downloadReport(content, filename);
+    downloadReport(formValues, diagnosis, combinedSources);
+  };
+
+  const handleNewDiagnosis = () => {
+    handleReset();
+    requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   };
 
   return (
@@ -170,11 +207,11 @@ function App() {
 
       <header className="hero">
         <div className="hero-content">
-          <span className="hero-tag">TechCheck Pilot</span>
-          <h1>Pro Diagnostics for Appliance Repair Teams</h1>
+          <span className="hero-tag">TechCheck Beta</span>
+          <h1>Pro Troubleshooting Guide</h1>
           <p>
-            Run deep appliance diagnostics with probability scoring, actionable part numbers, and
-            field-ready repair playbooks — optimized for desktop and mobile.
+            Run deep structured diagnostics with ranked causes, relevant parts, and a clear repair
+            plan that keeps the job moving forward.
           </p>
         </div>
       </header>
@@ -186,34 +223,28 @@ function App() {
           </div>
         )}
 
-        <DiagnosisForm
-          values={formValues}
-          onChange={handleFormChange}
-          onSubmit={handleSubmit}
-          loading={loading}
-        />
-
-      <DiagramGallery
-        status={diagramState.status}
-        bundle={diagramState.data}
-        error={diagramState.error}
-        requestedModel={diagramState.requestedModel}
-        onRetry={() => {
-          const model = diagnosis?.model_number || formValues.modelNumber.trim();
-          if (model) {
-            void loadDiagramData(model);
-          }
-        }}
-      />
+        <div ref={formRef}>
+          {!hasResults && (
+            <DiagnosisForm
+              values={formValues}
+              onChange={handleFormChange}
+              onSubmit={handleSubmit}
+              loading={loading}
+            />
+          )}
+        </div>
 
         {hasResults && diagnosis && jobSummary && (
           <>
-            <section className="card highlight">
+            <section className="card highlight results-header">
               <div className="highlight-header">
                 <h2>Diagnostic Results</h2>
                 <p>
                   Tech <strong>{jobSummary.tech}</strong> • Job <strong>{jobSummary.job}</strong>
                 </p>
+                <button className="btn btn-secondary" onClick={handleNewDiagnosis} type="button">
+                  Run New Diagnosis
+                </button>
               </div>
               <div className="highlight-body">
                 <p>
@@ -225,10 +256,7 @@ function App() {
               </div>
             </section>
 
-            <StatsSummary
-              probabilities={diagnosis.probabilities}
-              webResults={diagnosis.web_results}
-            />
+            <StatsSummary probabilities={diagnosis.probabilities} sourceCount={sourceCount} />
 
             <section className="probability-stack">
               {diagnosis.probabilities.map((prob, index) => (
@@ -253,33 +281,40 @@ function App() {
               </section>
             )}
 
-            <WebResearchList results={diagnosis.web_results} />
+            <WebResearchList results={diagnosis.web_results} inlineSources={inlineSourceLinks} />
 
             <section className="card">
               <details className="disclosure" open>
                 <summary>View Full Diagnostic Narrative</summary>
-                <pre className="analysis-block">{diagnosis.full_analysis}</pre>
+                <pre className="analysis-block">{sanitizedNarrative}</pre>
               </details>
             </section>
 
             <div className="action-row">
-              <button className="btn btn-secondary" onClick={handleReset} type="button">
-                Start New Diagnosis
-              </button>
               <button className="btn btn-primary" onClick={handleDownloadReport} type="button">
-                Download Report
+                Download PDF Report
               </button>
-              <a className="btn btn-contact" href="tel:5858806144">
-                Call Dean • 585-880-6144
-              </a>
             </div>
           </>
         )}
+
+        <DiagramGallery
+          status={diagramState.status}
+          bundle={diagramState.data}
+          error={diagramState.error}
+          requestedModel={diagramState.requestedModel}
+          onRetry={() => {
+            const model = diagnosis?.model_number || formValues.modelNumber.trim();
+            if (model) {
+              void loadDiagramData(model);
+            }
+          }}
+        />
       </main>
 
       <footer className="footer">
         <p>
-          <strong>TechCheckPilot</strong> — Diagnostic insights are AI assisted. Confirm complex
+          <strong>TechCheck Beta</strong> — Diagnostic insights are AI assisted. Confirm complex
           repairs with a certified technician.
         </p>
       </footer>

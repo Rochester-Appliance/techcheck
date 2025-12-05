@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { DiagramBundleResponse } from "../types";
 
@@ -28,134 +28,97 @@ const formatPrice = (value?: number | null) => {
 };
 
 const formatAvailability = (qty?: number | null) => {
-  if (qty === null || qty === undefined) return "Check availability";
+  if (qty === null || qty === undefined) return "Not available";
   if (qty > 0) return `In stock (${qty})`;
   if (qty === 0) return "Out of stock";
   return "Check availability";
 };
 
-const DiagramPreview = ({ url, sectionName }: { url?: string | null; sectionName: string }) => {
-  const [errored, setErrored] = useState(false);
-
-  if (!url || errored) {
-    return <div className="diagram-placeholder">Preview unavailable</div>;
-  }
-
-  return (
-    <img
-      src={url}
-      alt={`${sectionName} preview`}
-      loading="lazy"
-      decoding="async"
-      referrerPolicy="no-referrer"
-      onError={() => setErrored(true)}
-    />
-  );
-};
-
-const DiagramLargeImage = ({ url, sectionName }: { url?: string | null; sectionName: string }) => {
-  const [errored, setErrored] = useState(false);
-
-  if (!url) {
-    return null;
-  }
-
-  if (errored) {
-    return <div className="diagram-placeholder">Large diagram unavailable</div>;
-  }
-
-  return (
-    <img
-      src={url}
-      alt={`${sectionName} exploded diagram`}
-      loading="lazy"
-      decoding="async"
-      referrerPolicy="no-referrer"
-      onError={() => setErrored(true)}
-    />
-  );
-};
-
 const DiagramGallery = ({ status, bundle, error, requestedModel, onRetry }: DiagramGalleryProps) => {
-  if (status === "idle") return null;
+  const [expanded, setExpanded] = useState(false);
+  const [activeDiagramId, setActiveDiagramId] = useState<number | null>(null);
 
   const model = bundle?.model;
   const diagrams = bundle?.diagrams ?? [];
+  const activeDiagram = useMemo(
+    () => diagrams.find((diagram) => diagram.diagram_id === activeDiagramId),
+    [activeDiagramId, diagrams],
+  );
+
+  if (status === "idle") return null;
 
   return (
-    <section className="card diagram-card" aria-live="polite">
-      <div className="diagram-header">
-        <div>
-          <h3>Exploded Diagrams &amp; Parts</h3>
-          {model ? (
-            <p>
-              <strong>{model.model_number}</strong>
-              {model.model_description ? ` • ${model.model_description}` : ""}
-              {model.manufacturer ? ` • ${model.manufacturer}` : ""}
-            </p>
-          ) : requestedModel ? (
-            <p>
-              Showing data for <strong>{requestedModel}</strong>
-            </p>
-          ) : null}
-        </div>
-        {status === "error" && (
-          <button className="btn btn-secondary diagram-retry" onClick={onRetry} type="button">
-            Retry
-          </button>
-        )}
-      </div>
+    <section className="card diagram-card collapsible" aria-live="polite">
+      <details
+        className="diagram-disclosure"
+        open={expanded}
+        onToggle={(event) => setExpanded(event.currentTarget.open)}
+      >
+        <summary>
+          <div>
+            <h3>Diagrams &amp; Parts</h3>
+            {model ? (
+              <p>
+                <strong>{model.model_number}</strong>
+                {model.model_description ? ` • ${model.model_description}` : ""}
+                {model.manufacturer ? ` • ${model.manufacturer}` : ""}
+              </p>
+            ) : requestedModel ? (
+              <p>
+                Showing data for <strong>{requestedModel}</strong>
+              </p>
+            ) : null}
+          </div>
+          {status === "loading" && <span className="muted">Loading…</span>}
+        </summary>
 
-      {status === "loading" && (
-        <div className="diagram-status">
-          <div className="spinner" aria-hidden="true" />
-          <p>Loading diagrams and parts…</p>
-        </div>
-      )}
+        <div className="diagram-body">
+          {status === "loading" && (
+            <div className="diagram-status">
+              <div className="spinner" aria-hidden="true" />
+              <p>Loading diagrams and parts…</p>
+            </div>
+          )}
 
-      {status === "error" && (
-        <div className="diagram-status diagram-error" role="alert">
-          <p>Unable to load diagrams right now.</p>
-          {error ? <p className="muted">{error}</p> : null}
-        </div>
-      )}
+          {status === "error" && (
+            <div className="diagram-status diagram-error" role="alert">
+              <p>Unable to load diagrams right now.</p>
+              {error ? <p className="muted">{error}</p> : null}
+              <button className="btn btn-secondary diagram-retry" onClick={onRetry} type="button">
+                Retry
+              </button>
+            </div>
+          )}
 
-      {status === "ready" && diagrams.length === 0 && (
-        <div className="diagram-status">
-          <p>No diagrams were returned for this model.</p>
-        </div>
-      )}
+          {status === "ready" && diagrams.length === 0 && (
+            <div className="diagram-status">
+              <p>No diagrams were returned for this model.</p>
+            </div>
+          )}
 
-      {status === "ready" && diagrams.length > 0 && (
-        <div className="diagram-grid" role="list" aria-label="Exploded diagrams">
-          {diagrams.map((diagram) => (
-            <article className="diagram-item" key={diagram.diagram_id} role="listitem">
-              <div className="diagram-preview">
-                <DiagramPreview url={diagram.small_image_url} sectionName={diagram.section_name} />
-              </div>
-              <div className="diagram-meta">
-                <h4>{diagram.section_name}</h4>
-                {diagram.large_image_url ? (
-                  <a href={diagram.large_image_url} target="_blank" rel="noreferrer">
-                    Open large diagram ↗
-                  </a>
-                ) : (
-                  <span className="muted">Large diagram unavailable</span>
-                )}
-              </div>
-              <details className="diagram-details">
-                <summary>
-                  Parts list ({diagram.parts.length})
-                </summary>
-                <div className="diagram-detail-body">
-                  {diagram.large_image_url ? (
-                    <div className="diagram-large">
-                      <DiagramLargeImage
-                        url={diagram.large_image_url}
-                        sectionName={diagram.section_name}
-                      />
+          {status === "ready" && diagrams.length > 0 && (
+            <div className="diagram-list">
+              {diagrams.map((diagram) => (
+                <details className="diagram-row" key={diagram.diagram_id}>
+                  <summary>
+                    <div>
+                      <strong>{diagram.section_name}</strong>
+                      <span className="diagram-count">
+                        {diagram.parts.length} part{diagram.parts.length === 1 ? "" : "s"}
+                      </span>
                     </div>
-                  ) : null}
+                    {diagram.large_image_url ? (
+                      <button
+                        className="btn btn-link"
+                        type="button"
+                        onClick={() => setActiveDiagramId(diagram.diagram_id)}
+                      >
+                        Open large diagram
+                      </button>
+                    ) : (
+                      <span className="muted">Large diagram unavailable</span>
+                    )}
+                  </summary>
                   {diagram.parts.length ? (
                     <div className="diagram-parts">
                       <table className="diagram-parts-table">
@@ -196,10 +159,35 @@ const DiagramGallery = ({ status, bundle, error, requestedModel, onRetry }: Diag
                   ) : (
                     <p className="muted">No parts listed for this diagram.</p>
                   )}
-                </div>
-              </details>
-            </article>
-          ))}
+                </details>
+              ))}
+            </div>
+          )}
+        </div>
+      </details>
+
+      {activeDiagram && (
+        <div className="diagram-modal" role="dialog" aria-modal="true">
+          <div className="diagram-modal-content">
+            <button
+              className="btn btn-secondary diagram-modal-close"
+              type="button"
+              onClick={() => setActiveDiagramId(null)}
+            >
+              Close
+            </button>
+            <h4>{activeDiagram.section_name}</h4>
+            {activeDiagram.large_image_url ? (
+              <img
+                src={activeDiagram.large_image_url}
+                alt={`${activeDiagram.section_name} diagram`}
+                loading="lazy"
+                decoding="async"
+              />
+            ) : (
+              <p className="muted">Large diagram unavailable for this section.</p>
+            )}
+          </div>
         </div>
       )}
     </section>

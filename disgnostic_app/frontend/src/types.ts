@@ -81,3 +81,10 @@ export interface DiagnosisFormValues {
 
 export type OutcomeStatus = "resolved" | "unresolved" | null;
 
+export interface SourceLink {
+  label: string;
+  url: string;
+  snippet?: string | null;
+  origin?: "inline" | "web";
+}
+

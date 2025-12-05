@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { clsx } from "clsx";
 
 import { OutcomeStatus, ProbabilityItem } from "../types";
+import { sanitizeRichText } from "../utils";
 
 interface ProbabilityCardProps {
   item: ProbabilityItem;
@@ -30,55 +31,18 @@ const formatPartLine = (line: string) => {
 const createYoutubeLink = (query: string) =>
   `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
 
-const linkPattern = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
-
-const renderWithLinks = (text?: string): ReactNode => {
-  if (!text) return null;
-
-  const matches = [...text.matchAll(linkPattern)];
-  if (matches.length === 0) {
-    return text;
-  }
-
-  const nodes: ReactNode[] = [];
-  let lastIndex = 0;
-
-  matches.forEach((match) => {
-    const [fullMatch, label, url] = match;
-    const index = match.index ?? 0;
-
-    if (index > lastIndex) {
-      nodes.push(text.slice(lastIndex, index));
-    }
-
-    nodes.push(
-      <a key={`${url}-${index}`} href={url} target="_blank" rel="noreferrer">
-        {label}
-      </a>,
-    );
-
-    lastIndex = index + fullMatch.length;
-  });
-
-  if (lastIndex < text.length) {
-    nodes.push(text.slice(lastIndex));
-  }
-
-  return nodes;
-};
+const truncateChip = (value: string, limit = 64) =>
+  value.length > limit ? `${value.slice(0, limit - 1)}…` : value;
 
 export const ProbabilityCard = ({ item, index, outcome, onOutcomeChange }: ProbabilityCardProps) => {
-  const [sections, setSections] = useState({
-    verify: false,
-    parts: false,
-    video: false,
-    repair: false,
-  });
+  const [activeSection, setActiveSection] = useState<"verify" | "parts" | "video" | "repair" | null>(
+    null,
+  );
 
   const details = item.details;
 
-  const toggleSection = (key: keyof typeof sections) => {
-    setSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggleSection = (key: "verify" | "parts" | "video" | "repair") => {
+    setActiveSection((prev) => (prev === key ? null : key));
   };
 
   const severityClass = severityMap(item.percent);
@@ -86,8 +50,8 @@ export const ProbabilityCard = ({ item, index, outcome, onOutcomeChange }: Proba
   const tagline = useMemo(() => {
     if (!details) return [];
     const chips: string[] = [];
-    if (details.difficulty) chips.push(`Difficulty ${details.difficulty}`);
-    if (details.time) chips.push(`Time ${details.time}`);
+    if (details.difficulty) chips.push(`Difficulty ${truncateChip(details.difficulty)}`);
+    if (details.time) chips.push(`Time ${truncateChip(details.time)}`);
     return chips;
   }, [details]);
 
@@ -102,7 +66,7 @@ export const ProbabilityCard = ({ item, index, outcome, onOutcomeChange }: Proba
           <h3>
             <span className="prob-index">#{index + 1}</span> {item.title}
           </h3>
-          <p className="prob-description">{item.description}</p>
+          <p className="prob-description">{sanitizeRichText(item.description)}</p>
           {tagline.length > 0 && (
             <div className="chip-row">
               {tagline.map((chip) => (
@@ -118,48 +82,48 @@ export const ProbabilityCard = ({ item, index, outcome, onOutcomeChange }: Proba
       {details?.explanation && (
         <div className="prob-section">
           <h4>Why this matters</h4>
-          <p>{renderWithLinks(details.explanation) ?? details.explanation}</p>
+          <p>{sanitizeRichText(details.explanation)}</p>
         </div>
       )}
 
       <div className="toggle-grid">
         <button
           type="button"
-          className={clsx("toggle-btn", { active: sections.verify })}
+          className={clsx("toggle-btn", { active: activeSection === "verify" })}
           onClick={() => toggleSection("verify")}
         >
           ✅ Verify
         </button>
         <button
           type="button"
-          className={clsx("toggle-btn", { active: sections.parts })}
+          className={clsx("toggle-btn", { active: activeSection === "parts" })}
           onClick={() => toggleSection("parts")}
         >
           🔩 Part #
         </button>
         <button
           type="button"
-          className={clsx("toggle-btn", { active: sections.video })}
+          className={clsx("toggle-btn", { active: activeSection === "video" })}
           onClick={() => toggleSection("video")}
         >
           🎥 Videos
         </button>
         <button
           type="button"
-          className={clsx("toggle-btn", { active: sections.repair })}
+          className={clsx("toggle-btn", { active: activeSection === "repair" })}
           onClick={() => toggleSection("repair")}
         >
           📖 Repair
         </button>
       </div>
 
-      {sections.verify && (
+      {activeSection === "verify" && (
         <div className="prob-section">
           <h4>Verification Steps</h4>
           {details?.verify_steps?.length ? (
             <ol className="step-list">
               {details.verify_steps.map((step) => (
-                <li key={step}>{renderWithLinks(step) ?? step}</li>
+                <li key={step}>{sanitizeRichText(step)}</li>
               ))}
             </ol>
           ) : (
@@ -171,7 +135,7 @@ export const ProbabilityCard = ({ item, index, outcome, onOutcomeChange }: Proba
               <h5>Safety Warnings</h5>
               <ul>
                 {details.safety_warnings.map((warning) => (
-                  <li key={warning}>{renderWithLinks(warning) ?? warning}</li>
+                  <li key={warning}>{sanitizeRichText(warning)}</li>
                 ))}
               </ul>
             </div>
@@ -179,14 +143,14 @@ export const ProbabilityCard = ({ item, index, outcome, onOutcomeChange }: Proba
         </div>
       )}
 
-      {sections.parts && (
+      {activeSection === "parts" && (
         <div className="prob-section">
           <h4>Parts Needed</h4>
           {details?.parts?.length ? (
             <ul className="part-list">
               {details.parts.map((part) => {
                 const formatted = formatPartLine(part);
-                return <li key={part}>{renderWithLinks(formatted) ?? formatted}</li>;
+                return <li key={part}>{sanitizeRichText(formatted)}</li>;
               })}
             </ul>
           ) : (
@@ -195,7 +159,7 @@ export const ProbabilityCard = ({ item, index, outcome, onOutcomeChange }: Proba
         </div>
       )}
 
-      {sections.video && (
+      {activeSection === "video" && (
         <div className="prob-section">
           <h4>Video Tutorials</h4>
           {details?.video_searches?.length ? (
@@ -216,13 +180,13 @@ export const ProbabilityCard = ({ item, index, outcome, onOutcomeChange }: Proba
         </div>
       )}
 
-      {sections.repair && (
+      {activeSection === "repair" && (
         <div className="prob-section">
           <h4>Repair Playbook</h4>
           {details?.repair_steps?.length ? (
             <ol className="step-list">
               {details.repair_steps.map((step) => (
-                <li key={step}>{renderWithLinks(step) ?? step}</li>
+                <li key={step}>{sanitizeRichText(step)}</li>
               ))}
             </ol>
           ) : (
@@ -255,6 +219,14 @@ export const ProbabilityCard = ({ item, index, outcome, onOutcomeChange }: Proba
             No, not yet
           </button>
         </div>
+        {outcome === "resolved" && (
+          <p className="outcome-message success">Great news. Thank you for your feedback.</p>
+        )}
+        {outcome === "unresolved" && (
+          <p className="outcome-message warning">
+            Bummer. Try the next option below for your best odds of repair.
+          </p>
+        )}
       </div>
     </article>
   );

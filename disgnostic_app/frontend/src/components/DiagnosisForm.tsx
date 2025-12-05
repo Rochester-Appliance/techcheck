@@ -38,10 +38,6 @@ export const DiagnosisForm = ({
     <section className="card form-card" aria-labelledby="diagnosis-form-heading">
       <div className="card-header">
         <h2 id="diagnosis-form-heading">Diagnostic Intake</h2>
-        <p className="card-subtitle">
-          Gather the essentials so TechCheck can analyze the failure patterns and surface the most
-          likely causes.
-        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="form-grid">
@@ -95,6 +91,7 @@ export const DiagnosisForm = ({
             onChange={handleChange}
             disabled={isDisabled}
             rows={5}
+            maxLength={600}
             required
           />
         </div>

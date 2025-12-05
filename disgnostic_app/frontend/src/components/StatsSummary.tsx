@@ -1,29 +1,20 @@
-import { ProbabilityItem, WebResult } from "../types";
+import { ProbabilityItem } from "../types";
 
 interface StatsSummaryProps {
   probabilities: ProbabilityItem[];
-  webResults: WebResult[];
+  sourceCount: number;
 }
 
-export const StatsSummary = ({ probabilities, webResults }: StatsSummaryProps) => {
+export const StatsSummary = ({ probabilities, sourceCount }: StatsSummaryProps) => {
   if (!probabilities.length) return null;
 
   const issuesCount = probabilities.length;
   const topProbability = probabilities[0]?.percent ?? 0;
-  const sourceCount = webResults.length;
-  const videoCount = probabilities.reduce(
-    (total, item) => total + (item.details?.video_searches?.length ?? 0),
-    0,
-  );
-  const totalSources = sourceCount + videoCount;
 
   return (
     <section className="card">
       <div className="card-header">
         <h2>Diagnosis Snapshot</h2>
-        <p className="card-subtitle">
-          A quick glance at the analysis results and supporting research gathered for this job.
-        </p>
       </div>
 
       <div className="stats-grid">
@@ -36,8 +27,8 @@ export const StatsSummary = ({ probabilities, webResults }: StatsSummaryProps) =
           <span className="stat-label">Top Probability</span>
         </div>
         <div className="stat-card highlight-green">
-          <span className="stat-value">{totalSources}</span>
-          <span className="stat-label">Research Sources</span>
+          <span className="stat-value">{sourceCount}</span>
+          <span className="stat-label">Source Links</span>
         </div>
       </div>
     </section>
