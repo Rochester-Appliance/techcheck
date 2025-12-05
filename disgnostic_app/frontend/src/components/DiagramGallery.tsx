@@ -4,6 +4,14 @@ import { DiagramBundleResponse } from "../types";
 
 type DiagramGalleryStatus = "idle" | "loading" | "error" | "ready";
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
+/** Build a proxied image URL to bypass CORS restrictions on V&V images. */
+const proxyImageUrl = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  return `${API_BASE}/proxy/image?url=${encodeURIComponent(url)}`;
+};
+
 interface DiagramGalleryProps {
   status: DiagramGalleryStatus;
   bundle: DiagramBundleResponse | null;
@@ -179,7 +187,7 @@ const DiagramGallery = ({ status, bundle, error, requestedModel, onRetry }: Diag
             <h4>{activeDiagram.section_name}</h4>
             {activeDiagram.large_image_url ? (
               <img
-                src={activeDiagram.large_image_url}
+                src={proxyImageUrl(activeDiagram.large_image_url) ?? ""}
                 alt={`${activeDiagram.section_name} diagram`}
                 loading="lazy"
                 decoding="async"

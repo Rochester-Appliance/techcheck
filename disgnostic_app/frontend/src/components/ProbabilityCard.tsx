@@ -1,15 +1,22 @@
 import { useMemo, useState } from "react";
-import type { ReactNode } from "react";
 import { clsx } from "clsx";
 
-import { OutcomeStatus, ProbabilityItem } from "../types";
-import { sanitizeRichText } from "../utils";
+import { DiagramBundleResponse, OutcomeStatus, ProbabilityItem } from "../types";
+import {
+  extractPartNumbersFromList,
+  getUniqueDiagramsFromMatches,
+  matchPartsToDiagrams,
+  sanitizeRichText,
+} from "../utils";
+import LinkedPartsCard from "./LinkedPartsCard";
+import DiagramThumbnailCard from "./DiagramThumbnailCard";
 
 interface ProbabilityCardProps {
   item: ProbabilityItem;
   index: number;
   outcome: OutcomeStatus;
   onOutcomeChange: (title: string, outcome: OutcomeStatus) => void;
+  diagramBundle: DiagramBundleResponse | null;
 }
 
 const severityMap = (percent: number) => {
@@ -34,7 +41,13 @@ const createYoutubeLink = (query: string) =>
 const truncateChip = (value: string, limit = 64) =>
   value.length > limit ? `${value.slice(0, limit - 1)}…` : value;
 
-export const ProbabilityCard = ({ item, index, outcome, onOutcomeChange }: ProbabilityCardProps) => {
+export const ProbabilityCard = ({
+  item,
+  index,
+  outcome,
+  onOutcomeChange,
+  diagramBundle,
+}: ProbabilityCardProps) => {
   const [activeSection, setActiveSection] = useState<"verify" | "parts" | "video" | "repair" | null>(
     null,
   );
@@ -54,6 +67,21 @@ export const ProbabilityCard = ({ item, index, outcome, onOutcomeChange }: Proba
     if (details.time) chips.push(`Time ${truncateChip(details.time)}`);
     return chips;
   }, [details]);
+
+  // Extract part numbers from the parts list and match against V&V diagrams
+  const { matchedParts, matchedDiagrams } = useMemo(() => {
+    if (!details?.parts?.length || !diagramBundle?.diagrams?.length) {
+      return { matchedParts: [], matchedDiagrams: [] };
+    }
+
+    const partNumbers = extractPartNumbersFromList(details.parts);
+    const matched = matchPartsToDiagrams(partNumbers, diagramBundle.diagrams);
+    const diagrams = getUniqueDiagramsFromMatches(matched);
+
+    return { matchedParts: matched, matchedDiagrams: diagrams };
+  }, [details?.parts, diagramBundle?.diagrams]);
+
+  const hasMatches = matchedParts.length > 0 || matchedDiagrams.length > 0;
 
   return (
     <article className={clsx("probability-card", severityClass)}>
@@ -146,6 +174,16 @@ export const ProbabilityCard = ({ item, index, outcome, onOutcomeChange }: Proba
       {activeSection === "parts" && (
         <div className="prob-section">
           <h4>Parts Needed</h4>
+
+          {/* Show linked parts and diagram cards when matches exist */}
+          {hasMatches && (
+            <div className="parts-diagrams-row">
+              <LinkedPartsCard matchedParts={matchedParts} />
+              <DiagramThumbnailCard diagrams={matchedDiagrams} />
+            </div>
+          )}
+
+          {/* Original text-only parts list */}
           {details?.parts?.length ? (
             <ul className="part-list">
               {details.parts.map((part) => {

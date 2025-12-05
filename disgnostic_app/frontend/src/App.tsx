@@ -1,12 +1,15 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "./api";
+import CartDrawer from "./components/CartDrawer";
+import CartIcon from "./components/CartIcon";
 import DiagnosisForm from "./components/DiagnosisForm";
 import DiagramGallery from "./components/DiagramGallery";
 import LoadingOverlay from "./components/LoadingOverlay";
 import ProbabilityCard from "./components/ProbabilityCard";
 import StatsSummary from "./components/StatsSummary";
 import WebResearchList from "./components/WebResearchList";
+import { clearCart } from "./cartStore";
 import {
   DiagnosisFormValues,
   DiagnosisRequest,
@@ -53,9 +56,28 @@ function App() {
   const [diagramState, setDiagramState] = useState<DiagramLookupState>({
     ...initialDiagramState,
   });
+  const [cartOpen, setCartOpen] = useState(false);
+  const [checkoutStatus, setCheckoutStatus] = useState<"success" | "cancelled" | null>(null);
   const formRef = useRef<HTMLDivElement | null>(null);
 
   const hasResults = Boolean(diagnosis);
+
+  // Handle checkout return URL params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkoutParam = params.get("checkout");
+
+    if (checkoutParam === "success") {
+      setCheckoutStatus("success");
+      clearCart();
+      // Clean up URL
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (checkoutParam === "cancelled") {
+      setCheckoutStatus("cancelled");
+      // Clean up URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   const jobSummary = useMemo(() => {
     if (!diagnosis) return null;
@@ -201,9 +223,12 @@ function App() {
     });
   };
 
+  const dismissCheckoutStatus = () => setCheckoutStatus(null);
+
   return (
     <div className="app">
       <LoadingOverlay stage={loadingStage} visible={loading} />
+      <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} />
 
       <header className="hero">
         <div className="hero-content">
@@ -214,7 +239,29 @@ function App() {
             plan that keeps the job moving forward.
           </p>
         </div>
+        <CartIcon onClick={() => setCartOpen(true)} />
       </header>
+
+      {checkoutStatus === "success" && (
+        <div className="checkout-banner checkout-success">
+          <p>
+            <strong>Order confirmed!</strong> Thank you for your purchase. You will receive an
+            invoice via email.
+          </p>
+          <button type="button" onClick={dismissCheckoutStatus}>
+            ✕
+          </button>
+        </div>
+      )}
+
+      {checkoutStatus === "cancelled" && (
+        <div className="checkout-banner checkout-cancelled">
+          <p>Checkout was cancelled. Your cart items are still saved.</p>
+          <button type="button" onClick={dismissCheckoutStatus}>
+            ✕
+          </button>
+        </div>
+      )}
 
       <main className="page">
         {error && (
@@ -266,6 +313,7 @@ function App() {
                   index={index}
                   outcome={outcomes[prob.title] ?? null}
                   onOutcomeChange={handleOutcomeChange}
+                  diagramBundle={diagramState.data}
                 />
               ))}
             </section>

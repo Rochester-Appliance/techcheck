@@ -1,6 +1,102 @@
 import jsPDF from "jspdf";
 
-import { DiagnosisFormValues, DiagnosisResponse, ProbabilityItem, SourceLink } from "./types";
+import {
+  DiagnosisFormValues,
+  DiagnosisResponse,
+  ProbabilityItem,
+  SourceLink,
+  VNVDiagramSummary,
+  VNVPartSummary,
+} from "./types";
+
+// ---------------------------------------------------------------------------
+// Part Number Extraction & Matching Utilities
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract part numbers from diagnosis text.
+ * Matches patterns like EDR1RXD1, WPW10179146, W11700250
+ */
+export const extractPartNumbers = (text: string): string[] => {
+  if (!text) return [];
+  // Match alphanumeric part numbers: optional 1-3 letter prefix + 6-12 alphanumeric chars
+  const pattern = /\b([A-Z]{1,3})?[A-Z0-9]{6,12}\b/gi;
+  const matches = text.match(pattern) || [];
+  // Dedupe and normalize to uppercase
+  return [...new Set(matches.map((p) => p.toUpperCase()))];
+};
+
+/**
+ * Extract all part numbers from an array of part description strings.
+ */
+export const extractPartNumbersFromList = (parts: string[]): string[] => {
+  const allNumbers: string[] = [];
+  parts.forEach((part) => {
+    allNumbers.push(...extractPartNumbers(part));
+  });
+  return [...new Set(allNumbers)];
+};
+
+/**
+ * Represents a part from the diagnosis matched to V&V data.
+ */
+export interface MatchedPart {
+  partNumber: string;
+  vnvPart: VNVPartSummary;
+  diagram: VNVDiagramSummary;
+}
+
+/**
+ * Match extracted part numbers against V&V diagram data.
+ * Returns matched parts with their V&V info and diagram section.
+ */
+export const matchPartsToDiagrams = (
+  partNumbers: string[],
+  diagrams: VNVDiagramSummary[],
+): MatchedPart[] => {
+  const matches: MatchedPart[] = [];
+  const seen = new Set<string>();
+
+  for (const partNumber of partNumbers) {
+    const normalized = partNumber.toUpperCase().replace(/-/g, "");
+
+    for (const diagram of diagrams) {
+      for (const vnvPart of diagram.parts) {
+        const vnvNormalized = (vnvPart.part_number || "").toUpperCase().replace(/-/g, "");
+
+        if (vnvNormalized === normalized && !seen.has(partNumber)) {
+          matches.push({
+            partNumber,
+            vnvPart,
+            diagram,
+          });
+          seen.add(partNumber);
+          break; // Found match for this part, move to next
+        }
+      }
+      if (seen.has(partNumber)) break; // Already matched, skip remaining diagrams
+    }
+  }
+
+  return matches;
+};
+
+/**
+ * Get unique diagrams from matched parts (for diagram thumbnail display).
+ */
+export const getUniqueDiagramsFromMatches = (matches: MatchedPart[]): VNVDiagramSummary[] => {
+  const seen = new Set<number>();
+  const unique: VNVDiagramSummary[] = [];
+
+  for (const match of matches) {
+    if (!seen.has(match.diagram.diagram_id)) {
+      seen.add(match.diagram.diagram_id);
+      unique.push(match.diagram);
+    }
+  }
+
+  return unique;
+};
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
