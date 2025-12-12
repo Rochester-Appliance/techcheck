@@ -18,5 +18,12 @@ venv/
 .venv/
 *.log
 .streamlit/
-api.txt
 
+# Sensitive files - NEVER commit these
+api.txt
+*.env
+env.example
+techcheck.env
+.env*
+*secret*
+*key*.txt

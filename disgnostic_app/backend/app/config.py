@@ -5,9 +5,22 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
+from dotenv import load_dotenv
 
+# Load .env file from backend directory or parent directories
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[3]
 API_KEY_FILE = REPO_ROOT / "api.txt"
+
+# Try to load .env from multiple locations
+for env_path in [
+    BACKEND_ROOT / ".env",           # backend/.env
+    REPO_ROOT / ".env",               # repo root/.env  
+    REPO_ROOT / "techcheck.env",      # repo root/techcheck.env
+]:
+    if env_path.exists():
+        load_dotenv(env_path)
+        break
 
 
 class Settings:

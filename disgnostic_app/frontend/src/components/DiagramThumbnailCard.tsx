@@ -30,38 +30,35 @@ const DiagramThumbnailCard = ({ diagrams }: DiagramThumbnailCardProps) => {
         <h5 className="diagram-thumbnail-header">
           <span className="diagram-thumbnail-icon">📐</span> Related Diagram
         </h5>
-        <div className="diagram-thumbnail-body">
-          {thumbnailUrl ? (
-            <button
-              type="button"
-              className="diagram-thumbnail-btn"
-              onClick={() => setActiveDiagram(primaryDiagram)}
-              aria-label={`View ${primaryDiagram.section_name} diagram`}
-            >
-              <img
-                src={thumbnailUrl}
-                alt={`${primaryDiagram.section_name} thumbnail`}
-                className="diagram-thumbnail-img"
-                loading="lazy"
-                decoding="async"
-              />
-            </button>
-          ) : (
-            <div className="diagram-thumbnail-placeholder">
-              <span>No preview</span>
+        {/* Entire body is clickable to open diagram */}
+        <button
+          type="button"
+          className="diagram-thumbnail-body-btn"
+          onClick={() => setActiveDiagram(primaryDiagram)}
+          aria-label={`View ${primaryDiagram.section_name} diagram`}
+        >
+          <div className="diagram-thumbnail-body">
+            {thumbnailUrl ? (
+              <div className="diagram-thumbnail-img-wrapper">
+                <img
+                  src={thumbnailUrl}
+                  alt={`${primaryDiagram.section_name} thumbnail`}
+                  className="diagram-thumbnail-img"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+            ) : (
+              <div className="diagram-thumbnail-placeholder">
+                <span>No preview</span>
+              </div>
+            )}
+            <div className="diagram-thumbnail-info">
+              <span className="diagram-thumbnail-name">{primaryDiagram.section_name}</span>
+              <span className="diagram-thumbnail-hint">Tap to view full diagram</span>
             </div>
-          )}
-          <div className="diagram-thumbnail-info">
-            <span className="diagram-thumbnail-name">{primaryDiagram.section_name}</span>
-            <button
-              type="button"
-              className="btn btn-link diagram-thumbnail-expand"
-              onClick={() => setActiveDiagram(primaryDiagram)}
-            >
-              View Full Diagram
-            </button>
           </div>
-        </div>
+        </button>
 
         {/* Show additional diagrams if more than one */}
         {diagrams.length > 1 && (

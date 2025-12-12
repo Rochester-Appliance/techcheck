@@ -8,9 +8,17 @@ node_modules/
 build/
 dist/
 
-# Environment
+# Environment & Secrets - NEVER commit these
 .env
+.env.*
+*.env
+env.example
 api.txt
+*secret*
+*key*.txt
+
+# Context notes (local only)
+context/
 
 # OS
 .DS_Store

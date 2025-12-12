@@ -23,6 +23,11 @@ const formatAvailability = (qty?: number | null) => {
   return null;
 };
 
+const getDeliveryEstimate = (qty?: number | null) => {
+  if (qty && qty > 0) return "Est. 1-2 business days";
+  return "Est. 1-2 weeks";
+};
+
 const LinkedPartsCard = ({ matchedParts }: LinkedPartsCardProps) => {
   const [addedParts, setAddedParts] = useState<Set<string>>(new Set());
 
@@ -63,6 +68,8 @@ const LinkedPartsCard = ({ matchedParts }: LinkedPartsCardProps) => {
           const isAdded = addedParts.has(match.partNumber);
           const isOutOfStock = vnvPart.qty_available === 0;
 
+          const deliveryEstimate = getDeliveryEstimate(vnvPart.qty_available);
+
           return (
             <li key={match.partNumber} className="linked-part-item">
               <div className="linked-part-number">{vnvPart.part_number || match.partNumber}</div>
@@ -73,6 +80,11 @@ const LinkedPartsCard = ({ matchedParts }: LinkedPartsCardProps) => {
                 {priceStr && <span className="linked-part-price">{priceStr}</span>}
                 {priceStr && availStr && <span className="linked-part-sep">•</span>}
                 {availStr && <span className="linked-part-avail">{availStr}</span>}
+              </div>
+              <div className="linked-part-delivery">
+                <span className={`delivery-badge ${isOutOfStock ? "delayed" : "fast"}`}>
+                  🚚 {deliveryEstimate}
+                </span>
               </div>
               <button
                 type="button"

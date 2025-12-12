@@ -36,8 +36,10 @@ const CartDrawer = ({ isOpen, onClose }: CartDrawerProps) => {
     setIsLoading(true);
     setError(null);
 
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
     try {
-      const response = await axios.post("http://localhost:8000/checkout/create-session", {
+      const response = await axios.post(`${API_BASE}/checkout/create-session`, {
         items: items.map((item) => ({
           part_number: item.partNumber,
           description: item.description,

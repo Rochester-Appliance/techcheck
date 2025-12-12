@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import CartDrawer from "./components/CartDrawer";
 import CartIcon from "./components/CartIcon";
+import FloatingCart from "./components/FloatingCart";
 import DiagnosisForm from "./components/DiagnosisForm";
 import DiagramGallery from "./components/DiagramGallery";
 import LoadingOverlay from "./components/LoadingOverlay";
@@ -366,6 +367,8 @@ function App() {
           repairs with a certified technician.
         </p>
       </footer>
+
+      <FloatingCart onClick={() => setCartOpen(true)} />
     </div>
   );
 }

@@ -42,6 +42,11 @@ const formatAvailability = (qty?: number | null) => {
   return "Check availability";
 };
 
+const getDeliveryEstimate = (qty?: number | null) => {
+  if (qty && qty > 0) return "1-2 business days";
+  return "1-2 weeks";
+};
+
 const DiagramGallery = ({ status, bundle, error, requestedModel, onRetry }: DiagramGalleryProps) => {
   const [expanded, setExpanded] = useState(false);
   const [activeDiagramId, setActiveDiagramId] = useState<number | null>(null);
@@ -136,6 +141,7 @@ const DiagramGallery = ({ status, bundle, error, requestedModel, onRetry }: Diag
                             <th scope="col">Part #</th>
                             <th scope="col">Description</th>
                             <th scope="col">Availability</th>
+                            <th scope="col">Est. Delivery</th>
                             <th scope="col">Price</th>
                             <th scope="col" className="diagram-col-link">
                               Link
@@ -149,6 +155,11 @@ const DiagramGallery = ({ status, bundle, error, requestedModel, onRetry }: Diag
                               <td data-label="Part #">{part.part_number || "—"}</td>
                               <td data-label="Description">{part.description || "—"}</td>
                               <td data-label="Availability">{formatAvailability(part.qty_available)}</td>
+                              <td data-label="Est. Delivery" className="delivery-cell">
+                                <span className={`delivery-badge-sm ${part.qty_available && part.qty_available > 0 ? "fast" : "delayed"}`}>
+                                  {getDeliveryEstimate(part.qty_available)}
+                                </span>
+                              </td>
                               <td data-label="Price">{formatPrice(part.price ?? part.list_price)}</td>
                               <td data-label="Link" className="diagram-link-cell">
                                 {part.url ? (
