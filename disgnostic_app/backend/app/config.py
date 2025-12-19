@@ -33,6 +33,8 @@ class Settings:
         self._stripe_secret_key = os.getenv("STRIPE_SECRET_KEY", "")
         self._stripe_publishable_key = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
         self._stripe_webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+        # YouTube Data API key
+        self._youtube_api_key = os.getenv("YOUTUBE_API_KEY", "")
 
     @property
     def openai_api_key(self) -> Optional[str]:
@@ -59,6 +61,10 @@ class Settings:
     @property
     def stripe_webhook_secret(self) -> str:
         return self._stripe_webhook_secret
+
+    @property
+    def youtube_api_key(self) -> str:
+        return self._youtube_api_key
 
 
 @lru_cache(maxsize=1)

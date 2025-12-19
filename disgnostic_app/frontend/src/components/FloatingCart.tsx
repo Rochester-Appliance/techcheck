@@ -64,3 +64,4 @@ const FloatingCart = ({ onClick }: FloatingCartProps) => {
 
 export default FloatingCart;
 
+

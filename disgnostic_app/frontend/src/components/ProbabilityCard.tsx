@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { clsx } from "clsx";
+import axios from "axios";
 
 import { DiagramBundleResponse, OutcomeStatus, ProbabilityItem } from "../types";
 import {
@@ -10,6 +11,10 @@ import {
 } from "../utils";
 import LinkedPartsCard from "./LinkedPartsCard";
 import DiagramThumbnailCard from "./DiagramThumbnailCard";
+import { VideoCardGrid, YouTubeVideo } from "./VideoCard";
+import RepairStepList from "./RepairStepList";
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
 interface ProbabilityCardProps {
   item: ProbabilityItem;
@@ -35,9 +40,6 @@ const formatPartLine = (line: string) => {
   return `${partNumber.toUpperCase()} — ${rest.trim()}`;
 };
 
-const createYoutubeLink = (query: string) =>
-  `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-
 const truncateChip = (value: string, limit = 64) =>
   value.length > limit ? `${value.slice(0, limit - 1)}…` : value;
 
@@ -52,7 +54,50 @@ export const ProbabilityCard = ({
     null,
   );
 
+  // Video fetching state
+  const [videos, setVideos] = useState<YouTubeVideo[]>([]);
+  const [videosLoading, setVideosLoading] = useState(false);
+  const [videosError, setVideosError] = useState<string | null>(null);
+  const [videosFetched, setVideosFetched] = useState(false);
+
   const details = item.details;
+
+  // Build the search query for videos
+  const videoSearchQuery = useMemo(() => {
+    if (details?.video_searches?.length) {
+      return details.video_searches[0]; // Use the first suggested search
+    }
+    return `${item.title} appliance repair`;
+  }, [details?.video_searches, item.title]);
+
+  // Fetch videos from backend
+  const fetchVideos = useCallback(async () => {
+    if (videosFetched || videosLoading) return;
+    
+    setVideosLoading(true);
+    setVideosError(null);
+    
+    try {
+      const response = await axios.get(`${API_BASE}/api/youtube/search`, {
+        params: { q: videoSearchQuery, max_results: 3 },
+      });
+      setVideos(response.data.videos || []);
+      setVideosFetched(true);
+    } catch (err) {
+      console.error("Failed to fetch videos:", err);
+      setVideosError("Unable to load video previews");
+      setVideosFetched(true);
+    } finally {
+      setVideosLoading(false);
+    }
+  }, [videoSearchQuery, videosFetched, videosLoading]);
+
+  // Fetch videos when video section is opened
+  useEffect(() => {
+    if (activeSection === "video" && !videosFetched) {
+      fetchVideos();
+    }
+  }, [activeSection, videosFetched, fetchVideos]);
 
   const toggleSection = (key: "verify" | "parts" | "video" | "repair") => {
     setActiveSection((prev) => (prev === key ? null : key));
@@ -149,19 +194,15 @@ export const ProbabilityCard = ({
         <div className="prob-section">
           <h4>Verification Steps</h4>
           {details?.verify_steps?.length ? (
-            <ol className="step-list">
-              {details.verify_steps.map((step) => (
-                <li key={step}>{sanitizeRichText(step)}</li>
-              ))}
-            </ol>
+            <RepairStepList steps={details.verify_steps} type="verify" />
           ) : (
             <p className="muted">No specific verification steps provided.</p>
           )}
 
           {details?.safety_warnings?.length ? (
             <div className="warning-box">
-              <h5>Safety Warnings</h5>
-              <ul>
+              <h5>⚠️ Safety Warnings</h5>
+              <ul className="safety-list">
                 {details.safety_warnings.map((warning) => (
                   <li key={warning}>{sanitizeRichText(warning)}</li>
                 ))}
@@ -200,21 +241,12 @@ export const ProbabilityCard = ({
       {activeSection === "video" && (
         <div className="prob-section">
           <h4>Video Tutorials</h4>
-          {details?.video_searches?.length ? (
-            <ul className="video-list">
-              {details.video_searches.map((video) => (
-                <li key={video}>
-                  <a href={createYoutubeLink(video)} target="_blank" rel="noreferrer">
-                    {video}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="muted">
-              Try searching YouTube for “{item.title} {details?.time ? `repair ${details.time}` : "repair"}”.
-            </p>
-          )}
+          <VideoCardGrid
+            videos={videos}
+            loading={videosLoading}
+            error={videosError}
+            fallbackQuery={videoSearchQuery}
+          />
         </div>
       )}
 
@@ -222,11 +254,7 @@ export const ProbabilityCard = ({
         <div className="prob-section">
           <h4>Repair Playbook</h4>
           {details?.repair_steps?.length ? (
-            <ol className="step-list">
-              {details.repair_steps.map((step) => (
-                <li key={step}>{sanitizeRichText(step)}</li>
-              ))}
-            </ol>
+            <RepairStepList steps={details.repair_steps} type="repair" />
           ) : (
             <p className="muted">No detailed repair steps were provided for this issue.</p>
           )}

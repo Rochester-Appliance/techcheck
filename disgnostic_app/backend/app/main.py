@@ -23,6 +23,7 @@ from .schemas import (
     DiagramBundleResponse,
 )
 from .vnv_client import VNVClientError, get_vnv_client
+from .youtube import search_youtube_videos, YouTubeAPIError
 
 
 logger = logging.getLogger(__name__)
@@ -247,6 +248,43 @@ async def proxy_image(url: str = Query(..., description="Remote image URL to pro
 
     content_type = resp.headers.get("content-type", "image/jpeg")
     return Response(content=resp.content, media_type=content_type)
+
+
+# ---------------------------------------------------------------------------
+# YouTube Video Search Endpoint
+# ---------------------------------------------------------------------------
+
+class YouTubeVideo(BaseModel):
+    video_id: str
+    title: str
+    thumbnail_url: str
+    channel_name: str
+    view_count: str
+    duration: str
+    published_at: str
+
+
+class YouTubeSearchResponse(BaseModel):
+    videos: List[YouTubeVideo]
+    query: str
+
+
+@app.get("/api/youtube/search", response_model=YouTubeSearchResponse, tags=["youtube"])
+async def youtube_search(
+    q: str = Query(..., description="Search query for YouTube videos"),
+    max_results: int = Query(3, ge=1, le=10, description="Maximum number of results"),
+) -> YouTubeSearchResponse:
+    """Search YouTube for repair tutorial videos."""
+    try:
+        videos = await search_youtube_videos(q, max_results)
+        return YouTubeSearchResponse(videos=videos, query=q)
+    except YouTubeAPIError as exc:
+        logger.warning("YouTube API error: %s", exc)
+        # Return empty results instead of error - graceful degradation
+        return YouTubeSearchResponse(videos=[], query=q)
+    except Exception as exc:
+        logger.exception("Unexpected YouTube search error")
+        return YouTubeSearchResponse(videos=[], query=q)
 
 
 __all__ = ["app"]
