@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
-import { DiagramBundleResponse } from "../types";
+import { DiagramBundleResponse, VNVPartSummary } from "../types";
+import { addToCart } from "../cartStore";
 
 type DiagramGalleryStatus = "idle" | "loading" | "error" | "ready";
 
@@ -38,18 +39,19 @@ const formatPrice = (value?: number | null) => {
 const formatAvailability = (qty?: number | null) => {
   if (qty === null || qty === undefined) return "Not available";
   if (qty > 0) return `In stock (${qty})`;
-  if (qty === 0) return "Out of stock";
+  if (qty === 0) return "Factory Order";
   return "Check availability";
 };
 
 const getDeliveryEstimate = (qty?: number | null) => {
   if (qty && qty > 0) return "1-2 business days";
-  return "1-2 weeks";
+  return "3-4 weeks";
 };
 
 const DiagramGallery = ({ status, bundle, error, requestedModel, onRetry }: DiagramGalleryProps) => {
   const [expanded, setExpanded] = useState(false);
   const [activeDiagramId, setActiveDiagramId] = useState<number | null>(null);
+  const [addedParts, setAddedParts] = useState<Set<string>>(new Set());
 
   const model = bundle?.model;
   const diagrams = bundle?.diagrams ?? [];
@@ -57,6 +59,27 @@ const DiagramGallery = ({ status, bundle, error, requestedModel, onRetry }: Diag
     () => diagrams.find((diagram) => diagram.diagram_id === activeDiagramId),
     [activeDiagramId, diagrams],
   );
+
+  const handleAddToCart = (part: VNVPartSummary) => {
+    const price = part.price ?? part.list_price ?? 0;
+
+    addToCart({
+      partNumber: part.part_number,
+      description: part.description || "Appliance Part",
+      price,
+      imageUrl: part.image_urls?.[0],
+    });
+
+    // Show "Added!" feedback
+    setAddedParts((prev) => new Set(prev).add(part.part_number));
+    setTimeout(() => {
+      setAddedParts((prev) => {
+        const next = new Set(prev);
+        next.delete(part.part_number);
+        return next;
+      });
+    }, 1500);
+  };
 
   if (status === "idle") return null;
 
@@ -144,34 +167,43 @@ const DiagramGallery = ({ status, bundle, error, requestedModel, onRetry }: Diag
                             <th scope="col">Est. Delivery</th>
                             <th scope="col">Price</th>
                             <th scope="col" className="diagram-col-link">
-                              Link
+                              Action
                             </th>
                           </tr>
                         </thead>
                         <tbody>
-                          {diagram.parts.map((part) => (
-                            <tr key={`${diagram.diagram_id}-${part.part_number}-${part.item_number}`}>
-                              <td data-label="Item">{part.item_number || "—"}</td>
-                              <td data-label="Part #">{part.part_number || "—"}</td>
-                              <td data-label="Description">{part.description || "—"}</td>
-                              <td data-label="Availability">{formatAvailability(part.qty_available)}</td>
-                              <td data-label="Est. Delivery" className="delivery-cell">
-                                <span className={`delivery-badge-sm ${part.qty_available && part.qty_available > 0 ? "fast" : "delayed"}`}>
-                                  {getDeliveryEstimate(part.qty_available)}
-                                </span>
-                              </td>
-                              <td data-label="Price">{formatPrice(part.price ?? part.list_price)}</td>
-                              <td data-label="Link" className="diagram-link-cell">
-                                {part.url ? (
-                                  <a href={part.url} target="_blank" rel="noreferrer">
-                                    View ↗
-                                  </a>
-                                ) : (
-                                  <span className="muted">—</span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
+                          {diagram.parts.map((part) => {
+                            const isAdded = addedParts.has(part.part_number);
+                            const hasPrice = part.price != null || part.list_price != null;
+
+                            return (
+                              <tr key={`${diagram.diagram_id}-${part.part_number}-${part.item_number}`}>
+                                <td data-label="Item">{part.item_number || "—"}</td>
+                                <td data-label="Part #">{part.part_number || "—"}</td>
+                                <td data-label="Description">{part.description || "—"}</td>
+                                <td data-label="Availability">{formatAvailability(part.qty_available)}</td>
+                                <td data-label="Est. Delivery" className="delivery-cell">
+                                  <span className={`delivery-badge-sm ${part.qty_available && part.qty_available > 0 ? "fast" : "delayed"}`}>
+                                    {getDeliveryEstimate(part.qty_available)}
+                                  </span>
+                                </td>
+                                <td data-label="Price">{formatPrice(part.price ?? part.list_price)}</td>
+                                <td data-label="Action" className="diagram-link-cell">
+                                  {hasPrice ? (
+                                    <button
+                                      type="button"
+                                      className={`btn-table-cart ${isAdded ? "added" : ""}`}
+                                      onClick={() => handleAddToCart(part)}
+                                    >
+                                      {isAdded ? "✓ Added" : "Add to Cart"}
+                                    </button>
+                                  ) : (
+                                    <span className="muted">—</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>

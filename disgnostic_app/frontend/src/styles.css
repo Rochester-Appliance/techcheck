@@ -1147,6 +1147,34 @@ textarea {
   text-align: right;
 }
 
+/* Table Add to Cart button */
+.btn-table-cart {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.btn-table-cart:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  transform: translateY(-1px);
+}
+
+.btn-table-cart:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+.btn-table-cart.added {
+  background: #059669;
+}
+
 .diagram-parts {
   overflow-x: auto;
 }

@@ -19,13 +19,13 @@ const formatPrice = (price?: number | null, listPrice?: number | null) => {
 const formatAvailability = (qty?: number | null) => {
   if (qty === null || qty === undefined) return null;
   if (qty > 0) return `In stock (${qty})`;
-  if (qty === 0) return "Out of stock";
+  if (qty === 0) return "Factory Order";
   return null;
 };
 
 const getDeliveryEstimate = (qty?: number | null) => {
   if (qty && qty > 0) return "Est. 1-2 business days";
-  return "Est. 1-2 weeks";
+  return "Est. 3-4 weeks";
 };
 
 const LinkedPartsCard = ({ matchedParts }: LinkedPartsCardProps) => {
@@ -101,9 +101,8 @@ const LinkedPartsCard = ({ matchedParts }: LinkedPartsCardProps) => {
                 type="button"
                 className={`linked-part-add-btn ${isAdded ? "added" : ""}`}
                 onClick={() => handleAddToCart(match)}
-                disabled={isOutOfStock}
               >
-                {isAdded ? "✓ Added!" : isOutOfStock ? "Out of Stock" : "Add to Cart"}
+                {isAdded ? "✓ Added!" : "Add to Cart"}
               </button>
             </li>
           );

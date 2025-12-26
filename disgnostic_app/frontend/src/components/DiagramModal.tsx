@@ -28,7 +28,7 @@ const formatPrice = (price?: number | null, listPrice?: number | null) => {
 const formatAvailability = (qty?: number | null) => {
   if (qty === null || qty === undefined) return null;
   if (qty > 0) return `In stock (${qty})`;
-  if (qty === 0) return "Out of stock";
+  if (qty === 0) return "Factory Order";
   return null;
 };
 
@@ -113,7 +113,6 @@ const DiagramModal = ({ diagram, onClose }: DiagramModalProps) => {
                   const priceStr = formatPrice(part.price, part.list_price);
                   const availStr = formatAvailability(part.qty_available);
                   const isAdded = addedParts.has(part.part_number);
-                  const isOutOfStock = part.qty_available === 0;
 
                   return (
                     <li key={`${part.item_number}-${part.part_number}`} className="diagram-part-item">
@@ -134,9 +133,8 @@ const DiagramModal = ({ diagram, onClose }: DiagramModalProps) => {
                         type="button"
                         className={`btn-sm diagram-part-add ${isAdded ? "added" : ""}`}
                         onClick={() => handleAddToCart(part)}
-                        disabled={isOutOfStock}
                       >
-                        {isAdded ? "✓ Added" : isOutOfStock ? "Unavailable" : "Add to Cart"}
+                        {isAdded ? "✓ Added" : "Add to Cart"}
                       </button>
                     </li>
                   );
