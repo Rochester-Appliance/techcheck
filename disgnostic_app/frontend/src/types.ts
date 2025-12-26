@@ -87,4 +87,3 @@ export interface SourceLink {
   snippet?: string | null;
   origin?: "inline" | "web";
 }
-

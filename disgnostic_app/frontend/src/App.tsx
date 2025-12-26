@@ -304,6 +304,20 @@ function App() {
               </div>
             </section>
 
+            {/* Diagrams & Parts - moved to top for quick access */}
+            <DiagramGallery
+              status={diagramState.status}
+              bundle={diagramState.data}
+              error={diagramState.error}
+              requestedModel={diagramState.requestedModel}
+              onRetry={() => {
+                const model = diagnosis?.model_number || formValues.modelNumber.trim();
+                if (model) {
+                  void loadDiagramData(model);
+                }
+              }}
+            />
+
             <StatsSummary probabilities={diagnosis.probabilities} sourceCount={sourceCount} />
 
             <section className="probability-stack">
@@ -312,6 +326,7 @@ function App() {
                   key={prob.title}
                   item={prob}
                   index={index}
+                  isLastCard={index === diagnosis.probabilities.length - 1}
                   outcome={outcomes[prob.title] ?? null}
                   onOutcomeChange={handleOutcomeChange}
                   diagramBundle={diagramState.data}
@@ -347,18 +362,21 @@ function App() {
           </>
         )}
 
-        <DiagramGallery
-          status={diagramState.status}
-          bundle={diagramState.data}
-          error={diagramState.error}
-          requestedModel={diagramState.requestedModel}
-          onRetry={() => {
-            const model = diagnosis?.model_number || formValues.modelNumber.trim();
-            if (model) {
-              void loadDiagramData(model);
-            }
-          }}
-        />
+        {/* Show DiagramGallery at bottom only when no results (for model lookup) */}
+        {!hasResults && (
+          <DiagramGallery
+            status={diagramState.status}
+            bundle={diagramState.data}
+            error={diagramState.error}
+            requestedModel={diagramState.requestedModel}
+            onRetry={() => {
+              const model = formValues.modelNumber.trim();
+              if (model) {
+                void loadDiagramData(model);
+              }
+            }}
+          />
+        )}
       </main>
 
       <footer className="footer">

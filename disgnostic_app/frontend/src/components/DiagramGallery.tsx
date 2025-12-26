@@ -186,7 +186,17 @@ const DiagramGallery = ({ status, bundle, error, requestedModel, onRetry }: Diag
       </details>
 
       {activeDiagram && (
-        <div className="diagram-modal" role="dialog" aria-modal="true">
+        <div
+          className="diagram-modal"
+          role="dialog"
+          aria-modal="true"
+          onClick={(e) => {
+            // Close modal when clicking on backdrop (outside the content)
+            if (e.target === e.currentTarget) {
+              setActiveDiagramId(null);
+            }
+          }}
+        >
           <div className="diagram-modal-content">
             <button
               className="btn btn-secondary diagram-modal-close"

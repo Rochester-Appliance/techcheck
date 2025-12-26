@@ -348,6 +348,130 @@ textarea {
   background: linear-gradient(180deg, var(--prob-surface), #ffffff 55%);
   box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
   border-left: 6px solid var(--prob-accent);
+  transition: all 0.25s ease;
+}
+
+/* Collapsed card state */
+.probability-card.card-collapsed {
+  padding: 1rem 1.6rem;
+  opacity: 0.75;
+  background: rgba(241, 245, 249, 0.7);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
+.probability-card.card-collapsed .prob-header {
+  flex-wrap: nowrap;
+}
+
+.probability-card.card-collapsed .prob-badge {
+  min-width: auto;
+  padding: 0.5rem 0.75rem;
+}
+
+.probability-card.card-collapsed .prob-value {
+  font-size: 1.1rem;
+}
+
+.probability-card.card-collapsed .prob-label {
+  display: none;
+}
+
+.expand-card-btn {
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+  color: #2563eb;
+}
+
+.collapsed-message {
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+}
+
+/* Contact Modal (for last card "No" click) */
+.contact-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+.contact-modal {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 2rem;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.25);
+  animation: modalSlideIn 0.25s ease;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.contact-modal h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1.5rem;
+  color: #0f172a;
+}
+
+.contact-modal > p {
+  margin: 0 0 1.5rem;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.contact-modal-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: linear-gradient(135deg, #eef2ff, #e0f2fe);
+  border: 1px solid rgba(79, 70, 229, 0.2);
+  border-radius: 14px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.contact-icon {
+  font-size: 2rem;
+}
+
+.contact-modal-info > div {
+  text-align: left;
+}
+
+.contact-label {
+  margin: 0 0 0.25rem;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.contact-email {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.contact-email:hover {
+  text-decoration: underline;
+}
+
+.contact-modal-close {
+  width: 100%;
 }
 
 .probability-card.severity-high {
@@ -483,6 +607,50 @@ textarea {
 .prob-section h4 {
   margin: 0 0 0.75rem;
   font-size: 1.05rem;
+  color: #1e293b;
+}
+
+/* Diagnostic Insight Section */
+.insight-section {
+  background: linear-gradient(135deg, rgba(241, 245, 249, 0.9), rgba(226, 232, 240, 0.6));
+}
+
+.insight-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.insight-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  background: #ffffff;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+  transition: all 0.15s ease;
+}
+
+.insight-item:hover {
+  border-color: rgba(79, 70, 229, 0.3);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.08);
+}
+
+.insight-icon {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+
+.insight-text {
+  flex: 1;
+  font-size: 0.95rem;
+  line-height: 1.55;
   color: #1e293b;
 }
 
@@ -625,6 +793,34 @@ textarea {
   word-break: break-word;
 }
 
+/* Cleaner source list styling */
+.source-list-clean {
+  padding-left: 0;
+  list-style: none;
+}
+
+.source-list-clean li {
+  padding: 0.65rem 1rem;
+}
+
+.source-domain-link {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #2563eb;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.source-domain-link:hover {
+  text-decoration: underline;
+}
+
+.source-snippet {
+  font-size: 0.85rem;
+  margin: 0.35rem 0 0;
+  line-height: 1.5;
+}
+
 .analysis-block {
   background: #0f172a;
   color: #f8fafc;
@@ -646,6 +842,29 @@ textarea {
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.diagram-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.diagram-disclosure summary > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.diagram-disclosure summary > div:first-child::before {
+  content: "▶";
+  font-size: 0.7rem;
+  color: #64748b;
+  transition: transform 0.2s ease;
+}
+
+.diagram-disclosure[open] summary > div:first-child::before {
+  transform: rotate(90deg);
 }
 
 .diagram-disclosure h3 {
@@ -728,6 +947,171 @@ textarea {
 
 .diagram-modal-close {
   align-self: flex-end;
+}
+
+/* Diagram Modal Parts Drawer */
+.diagram-parts-drawer {
+  margin-top: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.3);
+  padding-top: 1rem;
+}
+
+.diagram-parts-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e3a8a;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  width: 100%;
+  text-align: left;
+}
+
+.diagram-parts-toggle:hover {
+  color: #2563eb;
+}
+
+.drawer-arrow {
+  font-size: 0.7rem;
+  transition: transform 0.2s ease;
+  color: #64748b;
+}
+
+.drawer-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.diagram-parts-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.diagram-part-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #f8fafc;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.diagram-part-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.diagram-part-item-num {
+  flex-shrink: 0;
+  background: #1e3a8a;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.diagram-part-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.diagram-part-number {
+  font-family: "SF Mono", "Roboto Mono", monospace;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #0f172a;
+}
+
+.diagram-part-desc {
+  font-size: 0.8rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.diagram-part-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
+.diagram-part-price {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #059669;
+}
+
+.diagram-part-avail {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.btn-sm.diagram-part-add {
+  flex-shrink: 0;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  transition: all 0.15s ease;
+}
+
+.btn-sm.diagram-part-add:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+}
+
+.btn-sm.diagram-part-add:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+.btn-sm.diagram-part-add.added {
+  background: #059669;
+}
+
+/* Mobile responsive for parts drawer */
+@media (max-width: 520px) {
+  .diagram-part-item {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .diagram-part-main {
+    width: 100%;
+  }
+
+  .diagram-part-meta {
+    flex-direction: row;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .btn-sm.diagram-part-add {
+    width: 100%;
+    padding: 0.6rem;
+  }
 }
 
 .diagram-parts-table {
@@ -1003,6 +1387,21 @@ textarea {
 
 .linked-part-avail {
   color: #64748b;
+}
+
+.linked-part-diagram-ref {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: #475569;
+  background: rgba(37, 99, 235, 0.06);
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  border-left: 3px solid #2563eb;
+}
+
+.linked-part-diagram-ref strong {
+  color: #1e3a8a;
+  font-weight: 700;
 }
 
 .linked-part-delivery {
@@ -2034,4 +2433,3 @@ textarea {
     padding: 0.05em 0.25em;
   }
 }
-

@@ -70,6 +70,12 @@ const LinkedPartsCard = ({ matchedParts }: LinkedPartsCardProps) => {
 
           const deliveryEstimate = getDeliveryEstimate(vnvPart.qty_available);
 
+          // Get diagram reference info
+          const itemNum = vnvPart.item_number;
+          const diagramName = match.diagram?.section_name;
+          // Extract just the name part (e.g., "04 - Shelves" -> "Shelves")
+          const shortDiagramName = diagramName?.replace(/^\d+\s*-\s*/, "") || diagramName;
+
           return (
             <li key={match.partNumber} className="linked-part-item">
               <div className="linked-part-number">{vnvPart.part_number || match.partNumber}</div>
@@ -81,6 +87,11 @@ const LinkedPartsCard = ({ matchedParts }: LinkedPartsCardProps) => {
                 {priceStr && availStr && <span className="linked-part-sep">•</span>}
                 {availStr && <span className="linked-part-avail">{availStr}</span>}
               </div>
+              {itemNum && shortDiagramName && (
+                <div className="linked-part-diagram-ref">
+                  🔍 Find as <strong>#{itemNum}</strong> on "{shortDiagramName}" diagram
+                </div>
+              )}
               <div className="linked-part-delivery">
                 <span className={`delivery-badge ${isOutOfStock ? "delayed" : "fast"}`}>
                   🚚 {deliveryEstimate}
