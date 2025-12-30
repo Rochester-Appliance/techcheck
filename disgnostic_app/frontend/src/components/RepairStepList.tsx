@@ -123,7 +123,7 @@ const parseStepContent = (text: string): React.ReactNode[] => {
   return elements.length > 0 ? elements : [text];
 };
 
-// Clean up common LLM formatting issues
+// Clean up common LLM formatting issues - keep it simple, don't over-filter
 const cleanStepText = (text: string): string => {
   return text
     // Remove leading numbers/bullets that might be duplicated
@@ -131,6 +131,12 @@ const cleanStepText = (text: string): string => {
     .replace(/^[-•]\s*/, "")
     // Clean up markdown bold
     .replace(/\*\*/g, "")
+    // Convert markdown links to just the text: [text](url) -> text
+    .replace(/\[([^\]]+)\]\s*\([^)]+\)/g, "$1")
+    // Remove standalone full URLs (but keep partial references)
+    .replace(/https?:\/\/[^\s)]+/g, "")
+    // Clean up empty parentheses left over
+    .replace(/\(\s*\)/g, "")
     // Clean up excessive whitespace
     .replace(/\s+/g, " ")
     .trim();
@@ -138,27 +144,30 @@ const cleanStepText = (text: string): string => {
 
 const RepairStepList = ({ steps, type = "repair" }: RepairStepListProps) => {
   const processedSteps = useMemo(() => {
-    return steps.map((step, index) => {
-      const cleaned = cleanStepText(step);
-      const icon = getStepIcon(cleaned);
-      const content = parseStepContent(cleaned);
-      const isSafetyStep = cleaned.toLowerCase().includes("unplug") || 
-                          cleaned.toLowerCase().includes("disconnect") ||
-                          cleaned.toLowerCase().includes("power off") ||
-                          cleaned.toLowerCase().includes("safety");
-      
-      return {
-        index,
-        icon,
-        content,
-        isSafetyStep,
-        original: cleaned,
-      };
-    });
+    return steps
+      .map((step, index) => {
+        const cleaned = cleanStepText(step);
+        const icon = getStepIcon(cleaned);
+        const content = parseStepContent(cleaned);
+        const isSafetyStep = cleaned.toLowerCase().includes("unplug") || 
+                            cleaned.toLowerCase().includes("disconnect") ||
+                            cleaned.toLowerCase().includes("power off") ||
+                            cleaned.toLowerCase().includes("safety");
+        
+        return {
+          index,
+          icon,
+          content,
+          isSafetyStep,
+          original: cleaned,
+        };
+      })
+      // Only filter out completely empty steps
+      .filter(step => step.original.length > 0);
   }, [steps]);
 
-  if (!steps.length) {
-    return <p className="muted">No steps provided.</p>;
+  if (processedSteps.length === 0) {
+    return <p className="muted">No {type === "verify" ? "verification" : "repair"} steps provided for this issue.</p>;
   }
 
   return (

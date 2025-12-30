@@ -1235,12 +1235,12 @@ textarea {
 .loading-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(15, 23, 42, 0.5);
   display: none;
   align-items: center;
   justify-content: center;
   z-index: 999;
-  backdrop-filter: blur(3px);
+  backdrop-filter: blur(4px);
 }
 
 .loading-overlay.visible {
@@ -1250,8 +1250,8 @@ textarea {
 .loading-card {
   background: #ffffff;
   padding: 1.75rem 2.5rem;
-  border-radius: 18px;
-  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.2);
+  border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.25);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1260,6 +1260,203 @@ textarea {
   font-weight: 600;
 }
 
+.loading-card-animated {
+  padding: 2rem 2.5rem;
+  min-width: 280px;
+}
+
+/* Flow Diagram Container */
+.loading-flow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.loading-flow-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-flow-middle {
+  gap: 0;
+}
+
+/* Individual Nodes */
+.loading-node {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  border: 2px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.4s ease;
+  position: relative;
+}
+
+.loading-node.active {
+  background: linear-gradient(135deg, #eef2ff, #e0f2fe);
+  border-color: #6366f1;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+  transform: scale(1.1);
+}
+
+.loading-node-icon {
+  font-size: 1.5rem;
+  transition: transform 0.3s;
+}
+
+.loading-node.active .loading-node-icon {
+  animation: iconBounce 0.5s ease;
+}
+
+@keyframes iconBounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+/* Center Node (Processing Hub) */
+.loading-node-center {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.loading-center-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid rgba(99, 102, 241, 0.3);
+  animation: ringPulse 2s ease-in-out infinite;
+}
+
+@keyframes ringPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.5; }
+}
+
+.loading-center-icon {
+  font-size: 1.1rem;
+  color: white;
+  animation: spin 3s linear infinite;
+}
+
+/* Connectors */
+.loading-connector {
+  position: relative;
+  overflow: hidden;
+}
+
+.loading-connector.vertical {
+  width: 3px;
+  height: 24px;
+  background: #e2e8f0;
+  border-radius: 2px;
+}
+
+.loading-connector.horizontal {
+  width: 24px;
+  height: 3px;
+  background: #e2e8f0;
+  border-radius: 2px;
+}
+
+/* Pulse Animation on Connectors */
+.loading-pulse {
+  position: absolute;
+  background: linear-gradient(90deg, transparent, #6366f1, transparent);
+  border-radius: 2px;
+  opacity: 0;
+}
+
+.loading-connector.vertical .loading-pulse {
+  width: 100%;
+  height: 12px;
+  left: 0;
+  animation: pulseDown 2s ease-in-out infinite;
+}
+
+.loading-connector.horizontal .loading-pulse {
+  width: 12px;
+  height: 100%;
+  top: 0;
+  animation: pulseRight 2s ease-in-out infinite;
+}
+
+.loading-connector.horizontal .loading-pulse.reverse {
+  animation: pulseLeft 2s ease-in-out infinite;
+}
+
+.loading-pulse.active {
+  opacity: 1;
+}
+
+@keyframes pulseDown {
+  0% { top: -12px; opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+@keyframes pulseRight {
+  0% { left: -12px; opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
+@keyframes pulseLeft {
+  0% { right: -12px; left: auto; opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { right: 100%; left: auto; opacity: 0; }
+}
+
+/* Stage Text */
+.loading-stage-text {
+  margin: 0;
+  margin-top: 0.75rem;
+  font-size: 0.95rem;
+  color: #475569;
+  font-weight: 500;
+  text-align: center;
+  min-height: 1.4em;
+  transition: opacity 0.3s;
+}
+
+/* Progress Dots */
+.loading-progress-dots {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.loading-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  transition: all 0.3s ease;
+}
+
+.loading-dot.active {
+  background: #6366f1;
+  transform: scale(1.25);
+}
+
+.loading-dot.completed {
+  background: #22c55e;
+}
+
+/* Keep spinner for backwards compatibility */
 .spinner {
   width: 48px;
   height: 48px;
@@ -1272,6 +1469,31 @@ textarea {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* Mobile adjustments for loading */
+@media (max-width: 520px) {
+  .loading-card-animated {
+    padding: 1.5rem;
+    min-width: 260px;
+  }
+  
+  .loading-node {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .loading-node-icon {
+    font-size: 1.25rem;
+  }
+  
+  .loading-connector.vertical {
+    height: 18px;
+  }
+  
+  .loading-connector.horizontal {
+    width: 18px;
   }
 }
 

@@ -136,10 +136,39 @@ def extract_issue_details(full_analysis: str, issue_title: str) -> IssueDetails:
     )
 
     def _extract_list(text: str) -> Sequence[str]:
-        items = re.findall(r"[-•*]\s*(.+?)(?=\n[-•*]|\n\n|\*\*|$)", text, re.DOTALL)
+        """Extract list items from text - handles bullets, numbers, and newline-separated items."""
+        if not text or not text.strip():
+            return []
+        
+        items: List[str] = []
+        
+        # Try bullet points first (-, •, *)
+        bullet_items = re.findall(r"[-•*]\s*(.+?)(?=\n\s*[-•*]|\n\n|\n\*\*|$)", text, re.DOTALL)
+        if bullet_items:
+            items = bullet_items
+        
+        # Try numbered lists (1., 2., etc.)
         if not items:
-            items = re.findall(r"\d+\.\s*(.+?)(?=\n\d+\.|\n\n|\*\*|$)", text, re.DOTALL)
-        return [item.strip() for item in items if item.strip()]
+            numbered_items = re.findall(r"\d+\.\s*(.+?)(?=\n\s*\d+\.|\n\n|\n\*\*|$)", text, re.DOTALL)
+            if numbered_items:
+                items = numbered_items
+        
+        # If still no items, try splitting by newlines (for plain text lists)
+        if not items:
+            lines = text.strip().split('\n')
+            items = [line.strip() for line in lines if line.strip() and len(line.strip()) > 5]
+        
+        # Clean up each item
+        cleaned = []
+        for item in items:
+            # Remove leading bullet/number if present
+            clean_item = re.sub(r'^[\d]+\.\s*|^[-•*]\s*', '', item.strip())
+            # Remove trailing markdown artifacts
+            clean_item = re.sub(r'\*\*$', '', clean_item).strip()
+            if clean_item and len(clean_item) > 3:
+                cleaned.append(clean_item)
+        
+        return cleaned
 
     parts_block = _extract(
         [
@@ -152,19 +181,31 @@ def extract_issue_details(full_analysis: str, issue_title: str) -> IssueDetails:
     ) or ""
     verify_block = _extract(
         [
-            r"\*\*Verification Steps:\*\*(.*?)(?=\*\*|$)",
-            r"\*\*Verification Checklist:\*\*(.*?)(?=\*\*|$)",
-            r"Verification Steps:\s*(.*?)(?=\n\s*(?:Step-by-Step|Safety|Video|Parts)[^\n]*:|$)",
-            r"Verification Checklist:\s*(.*?)(?=\n\s*(?:Step-by-Step|Safety|Video|Parts)[^\n]*:|$)",
+            # Markdown bold headers
+            r"\*\*Verification Steps?:\*\*\s*(.*?)(?=\n\*\*[A-Z]|\Z)",
+            r"\*\*Verification Checklist:\*\*\s*(.*?)(?=\n\*\*[A-Z]|\Z)",
+            r"\*\*How to Verify:?\*\*\s*(.*?)(?=\n\*\*[A-Z]|\Z)",
+            r"\*\*Testing:?\*\*\s*(.*?)(?=\n\*\*[A-Z]|\Z)",
+            # Plain text headers
+            r"Verification Steps?:\s*(.*?)(?=\n\s*(?:Step-by-Step|Safety|Video|Parts|Repair)[^\n]*:|\Z)",
+            r"Verification Checklist:\s*(.*?)(?=\n\s*(?:Step-by-Step|Safety|Video|Parts|Repair)[^\n]*:|\Z)",
+            r"How to Verify:?\s*(.*?)(?=\n\s*(?:Step-by-Step|Safety|Video|Parts|Repair)[^\n]*:|\Z)",
         ],
         section,
     ) or ""
     repair_block = _extract(
         [
-            r"\*\*Step-by-Step Repair:\*\*(.*?)(?=\*\*|$)",
-            r"\*\*Step-by-Step Repair\s*/\s*Remedy:\*\*(.*?)(?=\*\*|$)",
-            r"Step[- ]by[- ]Step Repair:\s*(.*?)(?=\n\s*(?:Safety|Video|Verification|Parts)[^\n]*:|$)",
-            r"Step[- ]by[- ]Step Repair\s*/\s*Remedy:\s*(.*?)(?=\n\s*(?:Safety|Video|Verification|Parts)[^\n]*:|$)",
+            # Markdown bold headers
+            r"\*\*Step-by-Step Repair:?\*\*\s*(.*?)(?=\n\*\*[A-Z]|\Z)",
+            r"\*\*Step-by-Step Repair\s*/\s*Remedy:\*\*\s*(.*?)(?=\n\*\*[A-Z]|\Z)",
+            r"\*\*Repair Steps?:?\*\*\s*(.*?)(?=\n\*\*[A-Z]|\Z)",
+            r"\*\*Remedy:?\*\*\s*(.*?)(?=\n\*\*[A-Z]|\Z)",
+            r"\*\*How to Fix:?\*\*\s*(.*?)(?=\n\*\*[A-Z]|\Z)",
+            r"\*\*Repair Instructions?:?\*\*\s*(.*?)(?=\n\*\*[A-Z]|\Z)",
+            # Plain text headers
+            r"Step[- ]by[- ]Step Repair:?\s*(.*?)(?=\n\s*(?:Safety|Video|Verification|Parts)[^\n]*:|\Z)",
+            r"Repair Steps?:\s*(.*?)(?=\n\s*(?:Safety|Video|Verification|Parts)[^\n]*:|\Z)",
+            r"How to Fix:?\s*(.*?)(?=\n\s*(?:Safety|Video|Verification|Parts)[^\n]*:|\Z)",
         ],
         section,
     ) or ""
@@ -242,6 +283,8 @@ LANGUAGE GUIDELINES (CRITICAL - follow strictly):
 - Use "Check if..." or "Look for..." instead of "Verify that the component exhibits...".
 - Avoid jargon and abbreviations - spell things out in plain language.
 - If you must use a technical term, briefly explain what it means.
+- NEVER include URLs, website links, or tracking parameters in any text content (verification steps, repair steps, etc.)
+- All instructions must be self-contained plain text - no external references needed.
 
 RESPONSE FORMAT (strict):
 
@@ -266,16 +309,38 @@ RESPONSE FORMAT (strict):
    - If no part is normally required, explicitly say “No replacement parts typically required.”
 
    **Verification Checklist:**  
-   1. [Specific measurement, visual inspection, or diagnostic mode step with expected reading/value]  
-   2. [...] (include at least three verification items; note required tools such as multimeter, clamp probe, manometer, etc.)
+   Provide 4-6 specific, actionable verification steps. Each step MUST include:
+   - What to check (component, connection, reading)
+   - How to check it (tool, method, visual inspection)
+   - Expected result (specific values, ranges, or visual signs)
+   - What it means if the test fails
+   
+   Example format:
+   1. "Check the defrost heater with a multimeter set to ohms - should read 20-30 ohms. If infinite (OL), the heater is open and needs replacement."
+   2. "Look at the evaporator coils behind the freezer panel - if frost is only on one section, the defrost system is failing."
+   3. "Listen for a click when unplugging the fridge - if no click from the compressor relay, it may be stuck."
+   
+   NEVER include URLs or website links in verification steps - only plain text instructions.
 
    **Step-by-Step Repair / Remedy:**  
-   1. [Action with torque/spec or caution if applicable]  
-   2. [...]  
-   3. [...]
+   Provide 5-8 clear, numbered repair steps. Each step should:
+   - Start with an action verb (Remove, Disconnect, Install, etc.)
+   - Include specific details (screw sizes, connector colors, torque specs if relevant)
+   - Warn about common mistakes
+   
+   Example:
+   1. "Unplug the refrigerator and wait 5 minutes for capacitors to discharge."
+   2. "Remove the 4 Phillips screws holding the back panel - keep them separate, they're different lengths."
+   3. "Disconnect the white 2-pin connector from the old defrost heater."
 
    **Safety / Gotchas:**  
-   - [List energized circuits, sharp edges, refrigerant tubing, steam, etc. Include PPE reminders.]
+   List 2-4 specific safety warnings relevant to this repair:
+   - Electrical hazards (voltage present, capacitor discharge)
+   - Physical hazards (sharp edges, hot surfaces, heavy parts)
+   - Refrigerant warnings if applicable
+   - Required PPE (gloves, safety glasses)
+   
+   Be specific: "Sharp evaporator fins can cut - wear cut-resistant gloves" not just "Be careful."
 
    **Video / Further Study:**  
    - Direct YouTube links if discovered via web search, else “Search: <recommended query>”.

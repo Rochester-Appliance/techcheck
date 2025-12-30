@@ -20,64 +20,51 @@ const DiagramThumbnailCard = ({ diagrams }: DiagramThumbnailCardProps) => {
 
   if (!diagrams.length) return null;
 
-  // Show the first diagram as the primary thumbnail
-  const primaryDiagram = diagrams[0];
-  const thumbnailUrl = proxyImageUrl(primaryDiagram.small_image_url || primaryDiagram.large_image_url);
-
   return (
     <>
       <div className="diagram-thumbnail-card">
         <h5 className="diagram-thumbnail-header">
-          <span className="diagram-thumbnail-icon">📐</span> Related Diagram
+          <span className="diagram-thumbnail-icon">📐</span> Related Diagram{diagrams.length > 1 ? "s" : ""}
         </h5>
-        {/* Entire body is clickable to open diagram */}
-        <button
-          type="button"
-          className="diagram-thumbnail-body-btn"
-          onClick={() => setActiveDiagram(primaryDiagram)}
-          aria-label={`View ${primaryDiagram.section_name} diagram`}
-        >
-          <div className="diagram-thumbnail-body">
-            {thumbnailUrl ? (
-              <div className="diagram-thumbnail-img-wrapper">
-                <img
-                  src={thumbnailUrl}
-                  alt={`${primaryDiagram.section_name} thumbnail`}
-                  className="diagram-thumbnail-img"
-                  loading="lazy"
-                  decoding="async"
-                />
-              </div>
-            ) : (
-              <div className="diagram-thumbnail-placeholder">
-                <span>No preview</span>
-              </div>
-            )}
-            <div className="diagram-thumbnail-info">
-              <span className="diagram-thumbnail-name">{primaryDiagram.section_name}</span>
-              <span className="diagram-thumbnail-hint">Tap to view full diagram</span>
-            </div>
-          </div>
-        </button>
-
-        {/* Show additional diagrams if more than one */}
-        {diagrams.length > 1 && (
-          <div className="diagram-thumbnail-more">
-            <span className="muted">+{diagrams.length - 1} more diagram{diagrams.length > 2 ? "s" : ""}</span>
-            <div className="diagram-thumbnail-list">
-              {diagrams.slice(1).map((diagram) => (
-                <button
-                  key={diagram.diagram_id}
-                  type="button"
-                  className="btn btn-link diagram-thumbnail-link"
-                  onClick={() => setActiveDiagram(diagram)}
-                >
-                  {diagram.section_name}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        
+        {/* Show all diagrams as thumbnail cards */}
+        <div className="diagram-thumbnail-grid">
+          {diagrams.map((diagram) => {
+            const thumbnailUrl = proxyImageUrl(diagram.small_image_url || diagram.large_image_url);
+            
+            return (
+              <button
+                key={diagram.diagram_id}
+                type="button"
+                className="diagram-thumbnail-body-btn"
+                onClick={() => setActiveDiagram(diagram)}
+                aria-label={`View ${diagram.section_name} diagram`}
+              >
+                <div className="diagram-thumbnail-body">
+                  {thumbnailUrl ? (
+                    <div className="diagram-thumbnail-img-wrapper">
+                      <img
+                        src={thumbnailUrl}
+                        alt={`${diagram.section_name} thumbnail`}
+                        className="diagram-thumbnail-img"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </div>
+                  ) : (
+                    <div className="diagram-thumbnail-placeholder">
+                      <span>No preview</span>
+                    </div>
+                  )}
+                  <div className="diagram-thumbnail-info">
+                    <span className="diagram-thumbnail-name">{diagram.section_name}</span>
+                    <span className="diagram-thumbnail-hint">Tap to view</span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Modal for large diagram view */}

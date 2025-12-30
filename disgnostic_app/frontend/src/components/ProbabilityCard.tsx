@@ -64,12 +64,34 @@ export const ProbabilityCard = ({
   const [videosError, setVideosError] = useState<string | null>(null);
   const [videosFetched, setVideosFetched] = useState(false);
 
+  // Reset video state when item changes (e.g., new diagnosis)
+  useEffect(() => {
+    setVideos([]);
+    setVideosFetched(false);
+    setVideosError(null);
+  }, [item.title]);
+
   const details = item.details;
+
+  // Clean up search query - remove curly quotes and special chars from LLM output
+  const cleanSearchQuery = (query: string): string => {
+    return query
+      // Replace curly quotes with nothing
+      .replace(/[""„‟❝❞〝〞＂]/g, "")
+      // Replace curly apostrophes
+      .replace(/[''‚‛❛❜]/g, "'")
+      // Remove other special unicode punctuation
+      .replace(/[«»‹›]/g, "")
+      // Clean up extra whitespace
+      .replace(/\s+/g, " ")
+      .trim();
+  };
 
   // Build the search query for videos
   const videoSearchQuery = useMemo(() => {
     if (details?.video_searches?.length) {
-      return details.video_searches[0]; // Use the first suggested search
+      // Clean up the LLM-provided search query
+      return cleanSearchQuery(details.video_searches[0]);
     }
     return `${item.title} appliance repair`;
   }, [details?.video_searches, item.title]);
@@ -273,17 +295,36 @@ export const ProbabilityCard = ({
                 </div>
               )}
 
-              {/* Original text-only parts list */}
-              {details?.parts?.length ? (
-                <ul className="part-list">
-                  {details.parts.map((part) => {
-                    const formatted = formatPartLine(part);
-                    return <li key={part}>{sanitizeRichText(formatted)}</li>;
-                  })}
-                </ul>
-              ) : (
+              {/* Styled text parts list (fallback when V&V data unavailable) */}
+              {!hasMatches && details?.parts?.length ? (
+                <div className="parts-text-fallback">
+                  <ul className="parts-text-list">
+                    {details.parts.map((part, idx) => {
+                      const formatted = formatPartLine(part);
+                      // Extract part number if present (usually at start)
+                      const partNumMatch = formatted.match(/^(\d{8,})\s*[-—]/);
+                      const partNum = partNumMatch ? partNumMatch[1] : null;
+                      const description = partNum 
+                        ? formatted.replace(/^\d{8,}\s*[-—]\s*/, '') 
+                        : formatted;
+                      
+                      return (
+                        <li key={`${part}-${idx}`} className="parts-text-item">
+                          {partNum && (
+                            <span className="parts-text-number">{partNum}</span>
+                          )}
+                          <span className="parts-text-desc">{sanitizeRichText(description)}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <p className="parts-text-note muted">
+                    💡 Tip: Diagram data temporarily unavailable. Part numbers shown above can be searched on your parts supplier.
+                  </p>
+                </div>
+              ) : !hasMatches ? (
                 <p className="muted">No specific part recommendations were supplied.</p>
-              )}
+              ) : null}
             </div>
           )}
 

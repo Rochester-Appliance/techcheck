@@ -42,7 +42,7 @@ export const DiagnosisForm = ({
 
       <form onSubmit={handleSubmit} className="form-grid">
         <div className="input-group">
-          <label htmlFor="techName">Tech Name *</label>
+          <label htmlFor="techName">Tech Name <span className="optional-label">(optional)</span></label>
           <input
             id="techName"
             name="techName"
@@ -51,12 +51,11 @@ export const DiagnosisForm = ({
             value={values.techName}
             onChange={handleChange}
             disabled={isDisabled}
-            required
           />
         </div>
 
         <div className="input-group">
-          <label htmlFor="jobNumber">Job Name / Number *</label>
+          <label htmlFor="jobNumber">Job Name / Number <span className="optional-label">(optional)</span></label>
           <input
             id="jobNumber"
             name="jobNumber"
@@ -64,7 +63,6 @@ export const DiagnosisForm = ({
             value={values.jobNumber}
             onChange={handleChange}
             disabled={isDisabled}
-            required
           />
         </div>
 
