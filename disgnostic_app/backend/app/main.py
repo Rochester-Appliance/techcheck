@@ -13,7 +13,13 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from .config import get_settings
-from .diagnostics import DiagnosticError, extract_issue_details, perform_diagnostic_analysis
+from .diagnostics import (
+    DiagnosticError,
+    extract_issue_details,
+    perform_diagnostic_analysis,
+    generate_verification_steps,
+    generate_repair_steps,
+)
 from .schemas import (
     DiagnosisRequest,
     DiagnosisResponse,
@@ -21,6 +27,10 @@ from .schemas import (
     IssueDetailsRequest,
     DiagramBundleRequest,
     DiagramBundleResponse,
+    VerifySubQueryRequest,
+    VerifySubQueryResponse,
+    RepairSubQueryRequest,
+    RepairSubQueryResponse,
 )
 from .vnv_client import VNVClientError, get_vnv_client
 from .youtube import search_youtube_videos, YouTubeAPIError
@@ -107,6 +117,58 @@ async def get_issue_details(payload: IssueDetailsRequest) -> IssueDetailResponse
         payload.issue,
     )
     return IssueDetailResponse(details=details)
+
+
+@app.post("/diagnose/verify", response_model=VerifySubQueryResponse, tags=["diagnostics"])
+async def regenerate_verification_steps(payload: VerifySubQueryRequest) -> VerifySubQueryResponse:
+    """
+    Regenerate verification steps for a specific issue using a focused sub-query.
+    Use this when the initial diagnosis didn't provide adequate verification steps.
+    """
+    try:
+        result = await run_in_threadpool(
+            generate_verification_steps,
+            payload.model_number,
+            payload.issue_title,
+            payload.symptoms,
+        )
+    except DiagnosticError as exc:
+        logger.warning("Verification sub-query error: %s", exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unexpected verification sub-query error")
+        raise HTTPException(status_code=500, detail="Verification generation failed") from exc
+
+    return VerifySubQueryResponse(
+        verify_steps=result.get("verify_steps", []),
+        safety_warnings=result.get("safety_warnings", []),
+    )
+
+
+@app.post("/diagnose/repair", response_model=RepairSubQueryResponse, tags=["diagnostics"])
+async def regenerate_repair_steps(payload: RepairSubQueryRequest) -> RepairSubQueryResponse:
+    """
+    Regenerate repair steps for a specific issue using a focused sub-query.
+    Use this when the initial diagnosis didn't provide adequate repair steps.
+    """
+    try:
+        result = await run_in_threadpool(
+            generate_repair_steps,
+            payload.model_number,
+            payload.issue_title,
+            payload.symptoms,
+        )
+    except DiagnosticError as exc:
+        logger.warning("Repair sub-query error: %s", exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unexpected repair sub-query error")
+        raise HTTPException(status_code=500, detail="Repair generation failed") from exc
+
+    return RepairSubQueryResponse(
+        repair_steps=result.get("repair_steps", []),
+        safety_warnings=result.get("safety_warnings", []),
+    )
 
 
 @app.post("/parts/diagrams", response_model=DiagramBundleResponse, tags=["parts"])

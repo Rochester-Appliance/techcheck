@@ -6,22 +6,6 @@ interface RepairStepListProps {
   type?: "repair" | "verify";
 }
 
-// Patterns to identify and highlight different elements
-const PATTERNS = {
-  // Part numbers: alphanumeric, 7+ chars, may have dashes
-  partNumber: /\b([A-Z]{0,3}[A-Z0-9]{6,}(?:-[A-Z0-9]+)?)\b/gi,
-  // Tools: common tools mentioned in repairs
-  tools: /\b(multimeter|ohmmeter|voltmeter|clamp meter|manometer|thermometer|screwdriver|wrench|socket|pliers|heat gun|torch|gauge|probe|tester)\b/gi,
-  // Measurements: numbers with units
-  measurements: /\b(\d+(?:\.\d+)?)\s*(ohms?|Ω|volts?|V|amps?|A|watts?|W|PSI|psi|°?[FC]|degrees?|minutes?|mins?|seconds?|secs?|inches?|in|mm|cm|ft-lbs?|Nm)\b/gi,
-  // Safety keywords
-  safety: /\b(WARNING|CAUTION|DANGER|unplug|disconnect|power off|de-energize|turn off|safety|PPE|gloves|goggles|energized)\b/gi,
-  // Positive outcomes
-  positive: /\b(should show|should read|expect|normal|good|correct|properly)\b/gi,
-  // Negative/problem indicators
-  negative: /\b(faulty|failed|broken|bad|defective|damaged|burnt|open circuit|short circuit|no continuity)\b/gi,
-};
-
 // Icon mapping for step types based on content
 const getStepIcon = (step: string): string => {
   const lowerStep = step.toLowerCase();
@@ -47,88 +31,13 @@ const getStepIcon = (step: string): string => {
   return "•";
 };
 
-// Parse step text and create highlighted spans
-const parseStepContent = (text: string): React.ReactNode[] => {
-  const elements: React.ReactNode[] = [];
-  let lastIndex = 0;
-  
-  // Collect all matches with their positions
-  interface Match {
-    start: number;
-    end: number;
-    text: string;
-    type: "part" | "tool" | "measurement" | "safety" | "positive" | "negative";
-  }
-  
-  const matches: Match[] = [];
-  
-  // Find part numbers
-  let match: RegExpExecArray | null;
-  const partPattern = new RegExp(PATTERNS.partNumber.source, "gi");
-  while ((match = partPattern.exec(text)) !== null) {
-    matches.push({ start: match.index, end: match.index + match[0].length, text: match[0], type: "part" });
-  }
-  
-  // Find tools
-  const toolPattern = new RegExp(PATTERNS.tools.source, "gi");
-  while ((match = toolPattern.exec(text)) !== null) {
-    matches.push({ start: match.index, end: match.index + match[0].length, text: match[0], type: "tool" });
-  }
-  
-  // Find measurements
-  const measurePattern = new RegExp(PATTERNS.measurements.source, "gi");
-  while ((match = measurePattern.exec(text)) !== null) {
-    matches.push({ start: match.index, end: match.index + match[0].length, text: match[0], type: "measurement" });
-  }
-  
-  // Find safety keywords
-  const safetyPattern = new RegExp(PATTERNS.safety.source, "gi");
-  while ((match = safetyPattern.exec(text)) !== null) {
-    matches.push({ start: match.index, end: match.index + match[0].length, text: match[0], type: "safety" });
-  }
-  
-  // Sort by position and remove overlaps
-  matches.sort((a, b) => a.start - b.start);
-  const filteredMatches: Match[] = [];
-  let lastEnd = 0;
-  for (const m of matches) {
-    if (m.start >= lastEnd) {
-      filteredMatches.push(m);
-      lastEnd = m.end;
-    }
-  }
-  
-  // Build elements
-  for (const m of filteredMatches) {
-    // Add text before this match
-    if (m.start > lastIndex) {
-      elements.push(<span key={`text-${lastIndex}`}>{text.slice(lastIndex, m.start)}</span>);
-    }
-    
-    // Add highlighted match
-    elements.push(
-      <span key={`match-${m.start}`} className={`step-highlight step-highlight-${m.type}`}>
-        {m.text}
-      </span>
-    );
-    
-    lastIndex = m.end;
-  }
-  
-  // Add remaining text
-  if (lastIndex < text.length) {
-    elements.push(<span key={`text-${lastIndex}`}>{text.slice(lastIndex)}</span>);
-  }
-  
-  return elements.length > 0 ? elements : [text];
-};
-
 // Clean up common LLM formatting issues - keep it simple, don't over-filter
 const cleanStepText = (text: string): string => {
   return text
-    // Remove leading numbers/bullets that might be duplicated
-    .replace(/^[\d]+\.\s*/, "")
-    .replace(/^[-•]\s*/, "")
+    // Remove leading numbers with period or parenthesis (1. or 1))
+    .replace(/^[\d]+[.)]\s*/, "")
+    // Remove leading bullets
+    .replace(/^[-•*]\s*/, "")
     // Clean up markdown bold
     .replace(/\*\*/g, "")
     // Convert markdown links to just the text: [text](url) -> text
@@ -142,13 +51,23 @@ const cleanStepText = (text: string): string => {
     .trim();
 };
 
+// Check if a step is valid content (not a header or artifact)
+const isValidStep = (text: string): boolean => {
+  const cleaned = text.trim().toLowerCase();
+  // Filter out headers and artifacts
+  if (cleaned.startsWith("/ remedy") || cleaned.startsWith("remedy:")) return false;
+  if (cleaned.startsWith("/ repair") || cleaned.startsWith("repair:")) return false;
+  if (cleaned.length < 10) return false;
+  return true;
+};
+
 const RepairStepList = ({ steps, type = "repair" }: RepairStepListProps) => {
   const processedSteps = useMemo(() => {
     return steps
+      .filter(step => isValidStep(step)) // Filter out headers and artifacts first
       .map((step, index) => {
         const cleaned = cleanStepText(step);
         const icon = getStepIcon(cleaned);
-        const content = parseStepContent(cleaned);
         const isSafetyStep = cleaned.toLowerCase().includes("unplug") || 
                             cleaned.toLowerCase().includes("disconnect") ||
                             cleaned.toLowerCase().includes("power off") ||
@@ -157,13 +76,11 @@ const RepairStepList = ({ steps, type = "repair" }: RepairStepListProps) => {
         return {
           index,
           icon,
-          content,
+          text: cleaned,
           isSafetyStep,
-          original: cleaned,
         };
       })
-      // Only filter out completely empty steps
-      .filter(step => step.original.length > 0);
+      .filter(step => step.text.length > 0); // Remove any that cleaned to empty
   }, [steps]);
 
   if (processedSteps.length === 0) {
@@ -179,7 +96,7 @@ const RepairStepList = ({ steps, type = "repair" }: RepairStepListProps) => {
         >
           <span className="step-icon" aria-hidden="true">{step.icon}</span>
           <span className="step-number">{step.index + 1}</span>
-          <span className="step-content">{step.content}</span>
+          <span className="step-content">{step.text}</span>
         </li>
       ))}
     </ol>

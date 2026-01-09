@@ -129,6 +129,9 @@ const DiagramGallery = ({ status, bundle, error, requestedModel, onRetry }: Diag
           {status === "ready" && diagrams.length === 0 && (
             <div className="diagram-status">
               <p>No diagrams were returned for this model.</p>
+              <button className="btn-retry" onClick={onRetry} type="button">
+                🔄 Retry
+              </button>
             </div>
           )}
 

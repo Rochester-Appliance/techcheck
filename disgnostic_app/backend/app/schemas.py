@@ -7,8 +7,8 @@ from pydantic import BaseModel, Field
 
 
 class DiagnosisRequest(BaseModel):
-    tech_name: str = Field(..., min_length=1)
-    job_number: str = Field(..., min_length=1)
+    tech_name: Optional[str] = Field(default=None)
+    job_number: Optional[str] = Field(default=None)
     model_number: str = Field(..., min_length=1)
     problem_description: str = Field(..., min_length=1)
 
@@ -102,6 +102,33 @@ class DiagramBundleResponse(DiagramBundle):
     pass
 
 
+# Sub-query schemas for targeted verification/repair regeneration
+class VerifySubQueryRequest(BaseModel):
+    """Request for regenerating verification steps for a specific issue."""
+    model_number: str = Field(..., min_length=1)
+    issue_title: str = Field(..., min_length=1)
+    symptoms: str = Field(..., min_length=1)
+
+
+class VerifySubQueryResponse(BaseModel):
+    """Response containing regenerated verification steps."""
+    verify_steps: List[str]
+    safety_warnings: List[str] = Field(default_factory=list)
+
+
+class RepairSubQueryRequest(BaseModel):
+    """Request for regenerating repair steps for a specific issue."""
+    model_number: str = Field(..., min_length=1)
+    issue_title: str = Field(..., min_length=1)
+    symptoms: str = Field(..., min_length=1)
+
+
+class RepairSubQueryResponse(BaseModel):
+    """Response containing regenerated repair steps."""
+    repair_steps: List[str]
+    safety_warnings: List[str] = Field(default_factory=list)
+
+
 __all__ = [
     "DiagnosisRequest",
     "DiagnosisResponse",
@@ -116,6 +143,10 @@ __all__ = [
     "VNVPart",
     "VNVDiagram",
     "VNVModel",
+    "VerifySubQueryRequest",
+    "VerifySubQueryResponse",
+    "RepairSubQueryRequest",
+    "RepairSubQueryResponse",
 ]
 
 

@@ -23,6 +23,9 @@ interface ProbabilityCardProps {
   outcome: OutcomeStatus;
   onOutcomeChange: (title: string, outcome: OutcomeStatus) => void;
   diagramBundle: DiagramBundleResponse | null;
+  onRetryParts?: () => void;
+  modelNumber?: string;
+  symptoms?: string;
 }
 
 const severityMap = (percent: number) => {
@@ -51,6 +54,9 @@ export const ProbabilityCard = ({
   outcome,
   onOutcomeChange,
   diagramBundle,
+  onRetryParts,
+  modelNumber,
+  symptoms,
 }: ProbabilityCardProps) => {
   const [activeSection, setActiveSection] = useState<"verify" | "parts" | "video" | "repair" | null>(
     null,
@@ -64,11 +70,22 @@ export const ProbabilityCard = ({
   const [videosError, setVideosError] = useState<string | null>(null);
   const [videosFetched, setVideosFetched] = useState(false);
 
+  // Sub-query states for verify/repair retry
+  const [verifyStepsOverride, setVerifyStepsOverride] = useState<string[] | null>(null);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [repairStepsOverride, setRepairStepsOverride] = useState<string[] | null>(null);
+  const [repairLoading, setRepairLoading] = useState(false);
+  const [safetyWarningsOverride, setSafetyWarningsOverride] = useState<string[] | null>(null);
+
   // Reset video state when item changes (e.g., new diagnosis)
   useEffect(() => {
     setVideos([]);
     setVideosFetched(false);
     setVideosError(null);
+    // Also reset sub-query overrides
+    setVerifyStepsOverride(null);
+    setRepairStepsOverride(null);
+    setSafetyWarningsOverride(null);
   }, [item.title]);
 
   const details = item.details;
@@ -117,6 +134,78 @@ export const ProbabilityCard = ({
       setVideosLoading(false);
     }
   }, [videoSearchQuery, videosFetched, videosLoading]);
+
+  // Retry video fetch (resets state and re-fetches)
+  const retryVideos = useCallback(() => {
+    setVideos([]);
+    setVideosFetched(false);
+    setVideosError(null);
+    setVideosLoading(true);
+    
+    axios.get(`${API_BASE}/api/youtube/search`, {
+      params: { q: videoSearchQuery, max_results: 3 },
+    })
+      .then((response) => {
+        setVideos(response.data.videos || []);
+        setVideosFetched(true);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch videos:", err);
+        setVideosError("Unable to load video previews");
+        setVideosFetched(true);
+      })
+      .finally(() => {
+        setVideosLoading(false);
+      });
+  }, [videoSearchQuery]);
+
+  // Retry verification steps with focused sub-query
+  const retryVerify = useCallback(() => {
+    if (!modelNumber || !symptoms) return;
+    
+    setVerifyLoading(true);
+    axios.post(`${API_BASE}/diagnose/verify`, {
+      model_number: modelNumber,
+      issue_title: item.title,
+      symptoms: symptoms,
+    })
+      .then((response) => {
+        setVerifyStepsOverride(response.data.verify_steps || []);
+        if (response.data.safety_warnings?.length) {
+          setSafetyWarningsOverride(response.data.safety_warnings);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to regenerate verification steps:", err);
+      })
+      .finally(() => {
+        setVerifyLoading(false);
+      });
+  }, [modelNumber, symptoms, item.title]);
+
+  // Retry repair steps with focused sub-query
+  const retryRepair = useCallback(() => {
+    if (!modelNumber || !symptoms) return;
+    
+    setRepairLoading(true);
+    axios.post(`${API_BASE}/diagnose/repair`, {
+      model_number: modelNumber,
+      issue_title: item.title,
+      symptoms: symptoms,
+    })
+      .then((response) => {
+        setRepairStepsOverride(response.data.repair_steps || []);
+        if (response.data.safety_warnings?.length) {
+          setSafetyWarningsOverride(response.data.safety_warnings);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to regenerate repair steps:", err);
+      })
+      .finally(() => {
+        setRepairLoading(false);
+      });
+  }, [modelNumber, symptoms, item.title]);
 
   // Fetch videos when video section is opened
   useEffect(() => {
@@ -263,18 +352,38 @@ export const ProbabilityCard = ({
 
           {activeSection === "verify" && (
             <div className="prob-section">
-              <h4>Verification Steps</h4>
-              {details?.verify_steps?.length ? (
-                <RepairStepList steps={details.verify_steps} type="verify" />
+              <div className="section-header-row">
+                <h4>Verification Steps</h4>
+                {modelNumber && symptoms && !verifyLoading && (
+                  <button type="button" onClick={retryVerify} className="btn-retry btn-retry-small">
+                    🔄 Regenerate
+                  </button>
+                )}
+              </div>
+              
+              {verifyLoading ? (
+                <div className="section-loading">
+                  <span className="spinner-small" />
+                  <span>Generating verification steps...</span>
+                </div>
+              ) : (verifyStepsOverride || details?.verify_steps)?.length ? (
+                <RepairStepList steps={verifyStepsOverride || details?.verify_steps || []} type="verify" />
               ) : (
-                <p className="muted">No specific verification steps provided.</p>
+                <div className="section-empty-state">
+                  <p className="muted">No specific verification steps provided.</p>
+                  {modelNumber && symptoms && (
+                    <button type="button" onClick={retryVerify} className="btn-retry">
+                      🔄 Generate Verification Steps
+                    </button>
+                  )}
+                </div>
               )}
 
-              {details?.safety_warnings?.length ? (
+              {(safetyWarningsOverride || details?.safety_warnings)?.length ? (
                 <div className="warning-box">
                   <h5>⚠️ Safety Warnings</h5>
                   <ul className="safety-list">
-                    {details.safety_warnings.map((warning) => (
+                    {(safetyWarningsOverride || details?.safety_warnings || []).map((warning) => (
                       <li key={warning}>{sanitizeRichText(warning)}</li>
                     ))}
                   </ul>
@@ -304,10 +413,10 @@ export const ProbabilityCard = ({
                       // Extract part number if present (usually at start)
                       const partNumMatch = formatted.match(/^(\d{8,})\s*[-—]/);
                       const partNum = partNumMatch ? partNumMatch[1] : null;
-                      const description = partNum 
-                        ? formatted.replace(/^\d{8,}\s*[-—]\s*/, '') 
+                      const description = partNum
+                        ? formatted.replace(/^\d{8,}\s*[-—]\s*/, '')
                         : formatted;
-                      
+
                       return (
                         <li key={`${part}-${idx}`} className="parts-text-item">
                           {partNum && (
@@ -318,12 +427,26 @@ export const ProbabilityCard = ({
                       );
                     })}
                   </ul>
-                  <p className="parts-text-note muted">
-                    💡 Tip: Diagram data temporarily unavailable. Part numbers shown above can be searched on your parts supplier.
-                  </p>
+                  <div className="parts-fallback-footer">
+                    <p className="parts-text-note muted">
+                      💡 Diagram data temporarily unavailable.
+                    </p>
+                    {onRetryParts && (
+                      <button type="button" onClick={onRetryParts} className="btn-retry">
+                        🔄 Retry Parts Lookup
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : !hasMatches ? (
-                <p className="muted">No specific part recommendations were supplied.</p>
+                <div className="parts-empty-state">
+                  <p className="muted">No specific part recommendations were supplied.</p>
+                  {onRetryParts && (
+                    <button type="button" onClick={onRetryParts} className="btn-retry">
+                      🔄 Retry Parts Lookup
+                    </button>
+                  )}
+                </div>
               ) : null}
             </div>
           )}
@@ -336,17 +459,38 @@ export const ProbabilityCard = ({
                 loading={videosLoading}
                 error={videosError}
                 fallbackQuery={videoSearchQuery}
+                onRetry={retryVideos}
               />
             </div>
           )}
 
           {activeSection === "repair" && (
             <div className="prob-section">
-              <h4>Repair Playbook</h4>
-              {details?.repair_steps?.length ? (
-                <RepairStepList steps={details.repair_steps} type="repair" />
+              <div className="section-header-row">
+                <h4>Repair Playbook</h4>
+                {modelNumber && symptoms && !repairLoading && (
+                  <button type="button" onClick={retryRepair} className="btn-retry btn-retry-small">
+                    🔄 Regenerate
+                  </button>
+                )}
+              </div>
+              
+              {repairLoading ? (
+                <div className="section-loading">
+                  <span className="spinner-small" />
+                  <span>Generating repair steps...</span>
+                </div>
+              ) : (repairStepsOverride || details?.repair_steps)?.length ? (
+                <RepairStepList steps={repairStepsOverride || details?.repair_steps || []} type="repair" />
               ) : (
-                <p className="muted">No detailed repair steps were provided for this issue.</p>
+                <div className="section-empty-state">
+                  <p className="muted">No detailed repair steps were provided for this issue.</p>
+                  {modelNumber && symptoms && (
+                    <button type="button" onClick={retryRepair} className="btn-retry">
+                      🔄 Generate Repair Steps
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}

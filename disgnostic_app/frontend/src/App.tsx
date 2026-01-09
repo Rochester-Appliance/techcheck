@@ -330,6 +330,14 @@ function App() {
                   outcome={outcomes[prob.title] ?? null}
                   onOutcomeChange={handleOutcomeChange}
                   diagramBundle={diagramState.data}
+                  onRetryParts={() => {
+                    const model = diagnosis?.model_number || formValues.modelNumber.trim();
+                    if (model) {
+                      void loadDiagramData(model);
+                    }
+                  }}
+                  modelNumber={diagnosis?.model_number}
+                  symptoms={diagnosis?.problem}
                 />
               ))}
             </section>

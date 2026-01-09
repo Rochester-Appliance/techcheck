@@ -106,6 +106,7 @@ interface VideoCardGridProps {
   loading?: boolean;
   error?: string | null;
   fallbackQuery?: string;
+  onRetry?: () => void;
 }
 
 export const VideoCardGrid = ({
@@ -113,6 +114,7 @@ export const VideoCardGrid = ({
   loading = false,
   error = null,
   fallbackQuery,
+  onRetry,
 }: VideoCardGridProps) => {
   if (loading) {
     return (
@@ -126,16 +128,23 @@ export const VideoCardGrid = ({
     return (
       <div className="video-card-error">
         <p className="muted">{error}</p>
-        {fallbackQuery && (
-          <a
-            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(fallbackQuery)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn-link"
-          >
-            Search on YouTube →
-          </a>
-        )}
+        <div className="video-card-actions">
+          {onRetry && (
+            <button type="button" onClick={onRetry} className="btn-retry">
+              🔄 Retry
+            </button>
+          )}
+          {fallbackQuery && (
+            <a
+              href={`https://www.youtube.com/results?search_query=${encodeURIComponent(fallbackQuery)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-link"
+            >
+              Search on YouTube →
+            </a>
+          )}
+        </div>
       </div>
     );
   }
@@ -144,16 +153,23 @@ export const VideoCardGrid = ({
     return (
       <div className="video-card-empty">
         <p className="muted">No video tutorials found.</p>
-        {fallbackQuery && (
-          <a
-            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(fallbackQuery)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn-link"
-          >
-            Search on YouTube →
-          </a>
-        )}
+        <div className="video-card-actions">
+          {onRetry && (
+            <button type="button" onClick={onRetry} className="btn-retry">
+              🔄 Retry
+            </button>
+          )}
+          {fallbackQuery && (
+            <a
+              href={`https://www.youtube.com/results?search_query=${encodeURIComponent(fallbackQuery)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-link"
+            >
+              Search on YouTube →
+            </a>
+          )}
+        </div>
       </div>
     );
   }

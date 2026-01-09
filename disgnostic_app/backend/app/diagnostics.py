@@ -86,7 +86,8 @@ def _parse_probability_distribution(analysis_text: str) -> List[Tuple[int, str, 
         structured.append((percent, title, desc))
 
     structured.sort(key=lambda item: item[0], reverse=True)
-    return structured
+    # Limit to top 3 suggestions for focused, high-quality results
+    return structured[:3]
 
 
 def extract_issue_details(full_analysis: str, issue_title: str) -> IssueDetails:
@@ -139,35 +140,56 @@ def extract_issue_details(full_analysis: str, issue_title: str) -> IssueDetails:
         """Extract list items from text - handles bullets, numbers, and newline-separated items."""
         if not text or not text.strip():
             return []
-        
+
         items: List[str] = []
-        
+
         # Try bullet points first (-, •, *)
         bullet_items = re.findall(r"[-•*]\s*(.+?)(?=\n\s*[-•*]|\n\n|\n\*\*|$)", text, re.DOTALL)
         if bullet_items:
             items = bullet_items
-        
-        # Try numbered lists (1., 2., etc.)
+
+        # Try numbered lists with period (1., 2., etc.)
         if not items:
             numbered_items = re.findall(r"\d+\.\s*(.+?)(?=\n\s*\d+\.|\n\n|\n\*\*|$)", text, re.DOTALL)
             if numbered_items:
                 items = numbered_items
-        
+
+        # Try numbered lists with parenthesis (1), 2), etc.)
+        if not items:
+            paren_items = re.findall(r"\d+\)\s*(.+?)(?=\n?\s*\d+\)|\n\n|\n\*\*|$)", text, re.DOTALL)
+            if paren_items:
+                items = paren_items
+
+        # Try inline numbered format "1) ... 2) ... 3) ..." (no newlines)
+        if not items:
+            inline_items = re.split(r'\d+\)\s*', text)
+            inline_items = [item.strip() for item in inline_items if item.strip() and len(item.strip()) > 10]
+            if len(inline_items) > 1:
+                items = inline_items
+
         # If still no items, try splitting by newlines (for plain text lists)
         if not items:
             lines = text.strip().split('\n')
             items = [line.strip() for line in lines if line.strip() and len(line.strip()) > 5]
-        
+
         # Clean up each item
         cleaned = []
         for item in items:
-            # Remove leading bullet/number if present
-            clean_item = re.sub(r'^[\d]+\.\s*|^[-•*]\s*', '', item.strip())
+            # Remove leading bullet/number if present (both . and ) formats)
+            clean_item = re.sub(r'^[\d]+[.)]\s*|^[-•*]\s*', '', item.strip())
             # Remove trailing markdown artifacts
             clean_item = re.sub(r'\*\*$', '', clean_item).strip()
-            if clean_item and len(clean_item) > 3:
+            # Skip headers and artifacts
+            lower_item = clean_item.lower()
+            if lower_item.startswith("/ remedy") or lower_item.startswith("remedy:"):
+                continue
+            if lower_item.startswith("/ repair") or lower_item.startswith("repair:"):
+                continue
+            if lower_item.startswith("step-by-step"):
+                continue
+            if clean_item and len(clean_item) > 10:
                 cleaned.append(clean_item)
-        
+
         return cleaned
 
     parts_block = _extract(
@@ -288,9 +310,11 @@ LANGUAGE GUIDELINES (CRITICAL - follow strictly):
 
 RESPONSE FORMAT (strict):
 
-1. **PROBABILITY DISTRIBUTION** (3-6 lines; must sum to 100%)
+1. **PROBABILITY DISTRIBUTION** (exactly 3 issues; must sum to 100%)
    - Format: [XX%] Issue Title | One-line symptom link + failure mode
-   - Weight the percentages using prevalence data (common service calls, recalls, known bulletins). Call out when an issue is rare but high-impact.
+   - Provide ONLY the top 3 most likely causes - no more, no less.
+   - Weight the percentages using prevalence data (common service calls, recalls, known bulletins).
+   - Focus on quality over quantity - each suggestion should be actionable and well-supported.
 
 2. **DETAILED BREAKDOWN FOR EACH ISSUE (in descending probability)**  
    Use the structure below for *every* issue:
@@ -586,12 +610,195 @@ Expectations:
     return payload
 
 
+def generate_verification_steps(
+    model_number: str,
+    issue_title: str,
+    symptoms: str,
+    *,
+    client: Optional["OpenAI"] = None,
+) -> Dict[str, List[str]]:
+    """
+    Generate focused verification steps for a specific issue.
+    This is a sub-query that uses a targeted prompt for better quality.
+    """
+    if client is None:
+        client = get_openai_client()
+
+    prompt = f"""You are an expert appliance repair technician. Generate ONLY verification steps for diagnosing this specific issue.
+
+Model Number: {model_number}
+Issue to Verify: {issue_title}
+Reported Symptoms: {symptoms}
+
+Provide 4-6 specific, actionable verification steps. Each step MUST include:
+- What to check (component, connection, reading)
+- How to check it (tool, method, visual inspection)
+- Expected result (specific values, ranges, or visual signs)
+- What it means if the test fails
+
+Format each step as a clear, numbered instruction. Use plain English.
+
+Example format:
+1. Check the defrost heater with a multimeter set to ohms - should read 20-30 ohms. If infinite (OL), the heater is open and needs replacement.
+2. Look at the evaporator coils behind the freezer panel - if frost is only on one section, the defrost system is failing.
+
+Also provide 1-3 relevant safety warnings if applicable (e.g., unplug before testing, sharp edges, etc.)
+
+RESPONSE FORMAT (strict JSON):
+{{
+  "verify_steps": ["step 1...", "step 2...", ...],
+  "safety_warnings": ["warning 1...", "warning 2..."]
+}}"""
+
+    system_prompt = "You are a senior appliance technician. Return ONLY valid JSON with verify_steps and safety_warnings arrays. No markdown, no explanation."
+
+    try:
+        response = client.responses.create(
+            model="gpt-4o-mini",
+            input=[
+                {"role": "system", "content": [{"type": "input_text", "text": system_prompt}]},
+                {"role": "user", "content": [{"type": "input_text", "text": prompt}]},
+            ],
+            max_output_tokens=2000,
+        )
+    except Exception as exc:
+        logger.exception("Verification sub-query failed")
+        raise DiagnosticError(f"Verification sub-query failed: {exc}")
+
+    output_text = getattr(response, "output_text", None) or ""
+    if not output_text:
+        try:
+            outputs = getattr(response, "output", []) or []
+            for item in outputs:
+                for content in getattr(item, "content", []) or []:
+                    if hasattr(content, "text"):
+                        output_text = getattr(content, "text", "")
+                        break
+        except Exception:
+            pass
+
+    # Parse JSON response
+    try:
+        # Clean up potential markdown code blocks
+        cleaned = output_text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+        
+        result = json.loads(cleaned)
+        return {
+            "verify_steps": result.get("verify_steps", []),
+            "safety_warnings": result.get("safety_warnings", []),
+        }
+    except json.JSONDecodeError:
+        logger.warning("Failed to parse verification response as JSON: %s", output_text[:500])
+        # Fallback: try to extract steps from plain text
+        lines = output_text.strip().split('\n')
+        steps = [line.strip() for line in lines if line.strip() and len(line.strip()) > 10]
+        return {"verify_steps": steps[:6], "safety_warnings": []}
+
+
+def generate_repair_steps(
+    model_number: str,
+    issue_title: str,
+    symptoms: str,
+    *,
+    client: Optional["OpenAI"] = None,
+) -> Dict[str, List[str]]:
+    """
+    Generate focused repair steps for a specific issue.
+    This is a sub-query that uses a targeted prompt for better quality.
+    """
+    if client is None:
+        client = get_openai_client()
+
+    prompt = f"""You are an expert appliance repair technician. Generate ONLY step-by-step repair instructions for fixing this specific issue.
+
+Model Number: {model_number}
+Issue to Repair: {issue_title}
+Reported Symptoms: {symptoms}
+
+Provide 5-8 clear, numbered repair steps. Each step should:
+- Start with an action verb (Remove, Disconnect, Install, Test, etc.)
+- Include specific details (screw types, connector colors, torque specs if relevant)
+- Warn about common mistakes
+- Be in logical order from start to finish
+
+Use plain English that any technician can follow quickly.
+
+Example format:
+1. Unplug the refrigerator and wait 5 minutes for capacitors to discharge.
+2. Remove the 4 Phillips screws holding the back panel - keep them separate, they're different lengths.
+3. Disconnect the white 2-pin connector from the old defrost heater - note which wire goes where.
+
+Also provide 2-4 relevant safety warnings (electrical hazards, sharp edges, heavy parts, etc.)
+
+RESPONSE FORMAT (strict JSON):
+{{
+  "repair_steps": ["step 1...", "step 2...", ...],
+  "safety_warnings": ["warning 1...", "warning 2..."]
+}}"""
+
+    system_prompt = "You are a senior appliance technician. Return ONLY valid JSON with repair_steps and safety_warnings arrays. No markdown, no explanation."
+
+    try:
+        response = client.responses.create(
+            model="gpt-4o-mini",
+            input=[
+                {"role": "system", "content": [{"type": "input_text", "text": system_prompt}]},
+                {"role": "user", "content": [{"type": "input_text", "text": prompt}]},
+            ],
+            max_output_tokens=2000,
+        )
+    except Exception as exc:
+        logger.exception("Repair sub-query failed")
+        raise DiagnosticError(f"Repair sub-query failed: {exc}")
+
+    output_text = getattr(response, "output_text", None) or ""
+    if not output_text:
+        try:
+            outputs = getattr(response, "output", []) or []
+            for item in outputs:
+                for content in getattr(item, "content", []) or []:
+                    if hasattr(content, "text"):
+                        output_text = getattr(content, "text", "")
+                        break
+        except Exception:
+            pass
+
+    # Parse JSON response
+    try:
+        # Clean up potential markdown code blocks
+        cleaned = output_text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+        
+        result = json.loads(cleaned)
+        return {
+            "repair_steps": result.get("repair_steps", []),
+            "safety_warnings": result.get("safety_warnings", []),
+        }
+    except json.JSONDecodeError:
+        logger.warning("Failed to parse repair response as JSON: %s", output_text[:500])
+        # Fallback: try to extract steps from plain text
+        lines = output_text.strip().split('\n')
+        steps = [line.strip() for line in lines if line.strip() and len(line.strip()) > 10]
+        return {"repair_steps": steps[:8], "safety_warnings": []}
+
+
 __all__ = [
     "DiagnosticError",
     "search_web",
     "perform_diagnostic_analysis",
     "extract_issue_details",
     "get_openai_client",
+    "generate_verification_steps",
+    "generate_repair_steps",
 ]
 
 
