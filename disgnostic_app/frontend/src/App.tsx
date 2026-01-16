@@ -336,6 +336,7 @@ function App() {
                       void loadDiagramData(model);
                     }
                   }}
+                  partsLoading={diagramState.status === "loading"}
                   modelNumber={diagnosis?.model_number}
                   symptoms={diagnosis?.problem}
                 />

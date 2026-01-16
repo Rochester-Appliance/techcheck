@@ -19,6 +19,7 @@ from .diagnostics import (
     perform_diagnostic_analysis,
     generate_verification_steps,
     generate_repair_steps,
+    generate_parts_list,
 )
 from .schemas import (
     DiagnosisRequest,
@@ -31,6 +32,9 @@ from .schemas import (
     VerifySubQueryResponse,
     RepairSubQueryRequest,
     RepairSubQueryResponse,
+    PartsSubQueryRequest,
+    PartsSubQueryResponse,
+    PartItem,
 )
 from .vnv_client import VNVClientError, get_vnv_client
 from .youtube import search_youtube_videos, YouTubeAPIError
@@ -168,6 +172,40 @@ async def regenerate_repair_steps(payload: RepairSubQueryRequest) -> RepairSubQu
     return RepairSubQueryResponse(
         repair_steps=result.get("repair_steps", []),
         safety_warnings=result.get("safety_warnings", []),
+    )
+
+
+@app.post("/diagnose/parts", response_model=PartsSubQueryResponse, tags=["diagnostics"])
+async def regenerate_parts_list(payload: PartsSubQueryRequest) -> PartsSubQueryResponse:
+    """
+    Regenerate parts list for a specific issue using a focused sub-query.
+    Use this when the initial diagnosis didn't provide proper part numbers.
+    Returns clean part numbers that can be matched against V&V.
+    """
+    try:
+        result = await run_in_threadpool(
+            generate_parts_list,
+            payload.model_number,
+            payload.issue_title,
+            payload.symptoms,
+        )
+    except DiagnosticError as exc:
+        logger.warning("Parts sub-query error: %s", exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unexpected parts sub-query error")
+        raise HTTPException(status_code=500, detail="Parts generation failed") from exc
+
+    # Convert dict parts to PartItem objects
+    part_items = [
+        PartItem(part_number=p["part_number"], description=p["description"])
+        for p in result.get("parts", [])
+    ]
+
+    return PartsSubQueryResponse(
+        parts=part_items,
+        no_parts_required=result.get("no_parts_required", False),
+        message=result.get("message"),
     )
 
 

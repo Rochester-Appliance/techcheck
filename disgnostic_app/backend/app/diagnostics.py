@@ -328,9 +328,13 @@ RESPONSE FORMAT (strict):
    **Difficulty:** [0-100] **Estimated Time:** [minutes or range]
 
    **Parts + Compatibility Notes:**  
-   - Part #[exact number] – Description — include availability hints if known (e.g., “superseded to W11650662”, “requires matching color code”).  
-   - Mention when part numbers change by model suffix; instruct tech to confirm tag if ambiguous.  
-   - If no part is normally required, explicitly say “No replacement parts typically required.”
+   CRITICAL - You MUST provide actual manufacturer part numbers (7-10 digit codes like "242044008", "W11650662", "5303918634").
+   - Use web_search to find the exact part numbers for this model if needed.
+   - Format REQUIRED: "[PartNumber] - [Description]" (e.g., "242044008 - Defrost heater assembly" or "5303918634 - Defrost thermostat kit")
+   - Include supersession notes if known (e.g., "superseded from 242044020; order by model tag suffix")
+   - If you genuinely cannot find the part number, write: "Check parts diagram for [component] - part varies by suffix"
+   - NEVER use generic labels like "REPLACEMENT", "DUCKBILL", "OPTIONAL" as part entries - those are NOT part numbers!
+   - If no parts are needed for this repair, write: "No replacement parts typically required."
 
    **Verification Checklist:**  
    Provide 4-6 specific, actionable verification steps. Each step MUST include:
@@ -375,7 +379,9 @@ RESPONSE FORMAT (strict):
 
 Expectations:
 - Cite bulletins when you reference them.
-- Never make up part numbers—if unsure, tell the tech to check the parts diagram.
+- ALWAYS use web_search to find actual part numbers (e.g., "242044008", "W11650662") for this model - never skip this step.
+- Parts MUST be listed as "[PartNumber] - [Description]" format with real 7-10 digit manufacturer codes.
+- If web_search doesn't return part numbers, say "Check parts diagram for [component]" - do NOT use generic words as part entries.
 - Use simple, actionable language (e.g., "Check the heating coil with a multimeter - it should read 10-12 ohms").
 - Keep instructions short and easy to scan quickly.
 - If information is missing, say what you're assuming."""
@@ -791,6 +797,126 @@ RESPONSE FORMAT (strict JSON):
         return {"repair_steps": steps[:8], "safety_warnings": []}
 
 
+def generate_parts_list(
+    model_number: str,
+    issue_title: str,
+    symptoms: str,
+    *,
+    client: Optional["OpenAI"] = None,
+) -> Dict[str, Any]:
+    """
+    Generate focused parts list for a specific issue.
+    This is a sub-query that uses a targeted prompt for better quality parts data.
+    """
+    if client is None:
+        client = get_openai_client()
+
+    prompt = f"""You are an expert appliance repair technician. List ONLY the replacement parts needed for this specific repair.
+
+Model Number: {model_number}
+Issue to Fix: {issue_title}
+Reported Symptoms: {symptoms}
+
+CRITICAL INSTRUCTIONS:
+1. Use web_search to find the EXACT part numbers for this model
+2. Return ONLY actual manufacturer part numbers (7-10 digit codes like "242044008", "W11650662", "5303918634")
+3. NEVER return generic descriptions as parts (no "DIAGRAM", "REPLACEMENT", "OPTIONAL", "APPROVED")
+4. If this repair doesn't require replacement parts (e.g., cleaning, adjustment, reset), return an empty parts array with no_parts_required=true
+
+RESPONSE FORMAT (strict JSON):
+{{
+  "parts": [
+    {{"part_number": "242044008", "description": "Defrost heater assembly"}},
+    {{"part_number": "5303918634", "description": "Defrost thermostat kit"}}
+  ],
+  "no_parts_required": false,
+  "message": null
+}}
+
+If no parts needed:
+{{
+  "parts": [],
+  "no_parts_required": true,
+  "message": "This repair typically requires cleaning/adjustment only - no replacement parts needed."
+}}"""
+
+    system_prompt = "You are a senior appliance technician. Use web_search to find exact part numbers. Return ONLY valid JSON. No markdown, no explanation."
+
+    try:
+        response = client.responses.create(
+            model="gpt-4o-mini",
+            input=[
+                {"role": "system", "content": [{"type": "input_text", "text": system_prompt}]},
+                {"role": "user", "content": [{"type": "input_text", "text": prompt}]},
+            ],
+            tools=[{"type": "web_search"}],
+            max_output_tokens=2000,
+            max_tool_calls=3,
+        )
+    except Exception as exc:
+        logger.exception("Parts sub-query failed")
+        raise DiagnosticError(f"Parts sub-query failed: {exc}")
+
+    output_text = getattr(response, "output_text", None) or ""
+    if not output_text:
+        try:
+            outputs = getattr(response, "output", []) or []
+            for item in outputs:
+                for content in getattr(item, "content", []) or []:
+                    if hasattr(content, "text"):
+                        output_text = getattr(content, "text", "")
+                        break
+        except Exception:
+            pass
+
+    # Parse JSON response
+    try:
+        # Clean up potential markdown code blocks
+        cleaned = output_text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+        
+        result = json.loads(cleaned)
+        
+        # Validate and clean parts
+        valid_parts = []
+        for part in result.get("parts", []):
+            pn = part.get("part_number", "").strip()
+            desc = part.get("description", "").strip()
+            # Only include if part_number looks like a real part number (7+ digits/chars)
+            if pn and len(pn) >= 7 and desc:
+                valid_parts.append({"part_number": pn, "description": desc})
+        
+        return {
+            "parts": valid_parts,
+            "no_parts_required": result.get("no_parts_required", len(valid_parts) == 0),
+            "message": result.get("message"),
+        }
+    except json.JSONDecodeError:
+        logger.warning("Failed to parse parts response as JSON: %s", output_text[:500])
+        # Fallback: try to extract part numbers from plain text
+        parts = []
+        lines = output_text.strip().split('\n')
+        for line in lines:
+            # Look for lines with part numbers (7-10 digit patterns)
+            match = re.search(r'\b(\d{7,10}|[A-Z]\d{6,10})\b', line)
+            if match:
+                pn = match.group(1)
+                # Get description as the rest of the line
+                desc = re.sub(r'^.*?\b' + pn + r'\b\s*[-–—:]*\s*', '', line).strip()
+                if desc:
+                    parts.append({"part_number": pn, "description": desc})
+        
+        return {
+            "parts": parts,
+            "no_parts_required": len(parts) == 0,
+            "message": None,
+        }
+
+
 __all__ = [
     "DiagnosticError",
     "search_web",
@@ -799,6 +925,7 @@ __all__ = [
     "get_openai_client",
     "generate_verification_steps",
     "generate_repair_steps",
+    "generate_parts_list",
 ]
 
 

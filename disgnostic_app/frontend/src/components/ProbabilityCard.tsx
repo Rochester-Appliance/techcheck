@@ -24,6 +24,7 @@ interface ProbabilityCardProps {
   onOutcomeChange: (title: string, outcome: OutcomeStatus) => void;
   diagramBundle: DiagramBundleResponse | null;
   onRetryParts?: () => void;
+  partsLoading?: boolean;
   modelNumber?: string;
   symptoms?: string;
 }
@@ -55,6 +56,7 @@ export const ProbabilityCard = ({
   onOutcomeChange,
   diagramBundle,
   onRetryParts,
+  partsLoading = false,
   modelNumber,
   symptoms,
 }: ProbabilityCardProps) => {
@@ -77,6 +79,12 @@ export const ProbabilityCard = ({
   const [repairLoading, setRepairLoading] = useState(false);
   const [safetyWarningsOverride, setSafetyWarningsOverride] = useState<string[] | null>(null);
 
+  // Parts sub-query states
+  const [partsOverride, setPartsOverride] = useState<Array<{part_number: string; description: string}> | null>(null);
+  const [partsSubQueryLoading, setPartsSubQueryLoading] = useState(false);
+  const [noPartsRequired, setNoPartsRequired] = useState(false);
+  const [noPartsMessage, setNoPartsMessage] = useState<string | null>(null);
+
   // Reset video state when item changes (e.g., new diagnosis)
   useEffect(() => {
     setVideos([]);
@@ -86,6 +94,9 @@ export const ProbabilityCard = ({
     setVerifyStepsOverride(null);
     setRepairStepsOverride(null);
     setSafetyWarningsOverride(null);
+    setPartsOverride(null);
+    setNoPartsRequired(false);
+    setNoPartsMessage(null);
   }, [item.title]);
 
   const details = item.details;
@@ -206,6 +217,75 @@ export const ProbabilityCard = ({
         setRepairLoading(false);
       });
   }, [modelNumber, symptoms, item.title]);
+
+  // Filter out garbage parts entries (DIAGRAM, APPROVED, OPTIONAL, etc.)
+  const filterValidParts = useCallback((parts: string[]): string[] => {
+    return parts.filter((part) => {
+      const lower = part.toLowerCase().trim();
+      // Reject entries that are clearly not part numbers
+      if (lower.startsWith("diagram")) return false;
+      if (lower.startsWith("approved")) return false;
+      if (lower.startsWith("optional")) return false;
+      if (lower.startsWith("check parts")) return false;
+      if (lower.startsWith("check the parts")) return false;
+      if (lower.includes("no replacement parts")) return false;
+      if (lower.includes("no parts typically")) return false;
+      if (lower.includes("not typically required")) return false;
+      // Must contain a 7+ digit/char alphanumeric code to be valid
+      return /\b[A-Z0-9]{7,}\b/i.test(part);
+    });
+  }, []);
+
+  // Check if parts indicate "no parts required"
+  const checkNoPartsRequired = useCallback((parts: string[]): boolean => {
+    if (!parts || parts.length === 0) return false;
+    const combined = parts.join(" ").toLowerCase();
+    return (
+      combined.includes("no replacement parts") ||
+      combined.includes("no parts typically") ||
+      combined.includes("not typically required") ||
+      combined.includes("cleaning only") ||
+      combined.includes("adjustment only")
+    );
+  }, []);
+
+  // Retry parts with sub-query then V&V lookup
+  const retryPartsWithSubQuery = useCallback(() => {
+    if (!modelNumber || !symptoms) return;
+    
+    setPartsSubQueryLoading(true);
+    setNoPartsRequired(false);
+    setNoPartsMessage(null);
+    
+    axios.post(`${API_BASE}/diagnose/parts`, {
+      model_number: modelNumber,
+      issue_title: item.title,
+      symptoms: symptoms,
+    })
+      .then((response) => {
+        const { parts, no_parts_required, message } = response.data;
+        
+        if (no_parts_required) {
+          setNoPartsRequired(true);
+          setNoPartsMessage(message || "This repair typically doesn't require replacement parts.");
+          setPartsOverride([]);
+        } else if (parts && parts.length > 0) {
+          setPartsOverride(parts);
+          // Trigger V&V retry with new parts via the parent callback
+          if (onRetryParts) {
+            onRetryParts();
+          }
+        } else {
+          setPartsOverride([]);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to regenerate parts list:", err);
+      })
+      .finally(() => {
+        setPartsSubQueryLoading(false);
+      });
+  }, [modelNumber, symptoms, item.title, onRetryParts]);
 
   // Fetch videos when video section is opened
   useEffect(() => {
@@ -396,58 +476,154 @@ export const ProbabilityCard = ({
             <div className="prob-section">
               <h4>Parts Needed</h4>
 
-              {/* Show linked parts and diagram cards when matches exist */}
-              {hasMatches && (
+              {/* Show loading state when fetching parts */}
+              {(partsLoading || partsSubQueryLoading) ? (
+                <div className="section-loading">
+                  <span className="spinner-small" />
+                  <span>{partsSubQueryLoading ? "Finding part numbers..." : "Loading parts diagrams..."}</span>
+                </div>
+              ) : hasMatches ? (
+                /* Show linked parts and diagram cards when V&V matches exist */
                 <div className="parts-diagrams-row">
                   <LinkedPartsCard matchedParts={matchedParts} />
                   <DiagramThumbnailCard diagrams={matchedDiagrams} />
                 </div>
-              )}
-
-              {/* Styled text parts list (fallback when V&V data unavailable) */}
-              {!hasMatches && details?.parts?.length ? (
-                <div className="parts-text-fallback">
-                  <ul className="parts-text-list">
-                    {details.parts.map((part, idx) => {
-                      const formatted = formatPartLine(part);
-                      // Extract part number if present (usually at start)
-                      const partNumMatch = formatted.match(/^(\d{8,})\s*[-—]/);
-                      const partNum = partNumMatch ? partNumMatch[1] : null;
-                      const description = partNum
-                        ? formatted.replace(/^\d{8,}\s*[-—]\s*/, '')
-                        : formatted;
-
-                      return (
-                        <li key={`${part}-${idx}`} className="parts-text-item">
-                          {partNum && (
-                            <span className="parts-text-number">{partNum}</span>
-                          )}
-                          <span className="parts-text-desc">{sanitizeRichText(description)}</span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  <div className="parts-fallback-footer">
-                    <p className="parts-text-note muted">
-                      💡 Diagram data temporarily unavailable.
-                    </p>
-                    {onRetryParts && (
-                      <button type="button" onClick={onRetryParts} className="btn-retry">
-                        🔄 Retry Parts Lookup
-                      </button>
+              ) : noPartsRequired ? (
+                /* Clean "no parts required" state */
+                <div className="parts-no-required-card">
+                  <div className="parts-no-required-icon">✅</div>
+                  <div className="parts-no-required-content">
+                    <h5>No Parts Typically Required</h5>
+                    <p>{noPartsMessage || "This repair usually doesn't need replacement parts."}</p>
+                    {modelNumber && (
+                      <a
+                        href={`https://www.vvapplianceparts.com/search?q=${encodeURIComponent(modelNumber)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="parts-search-link"
+                      >
+                        🔍 Search parts for {modelNumber} on V&V
+                      </a>
                     )}
                   </div>
                 </div>
-              ) : !hasMatches ? (
-                <div className="parts-empty-state">
-                  <p className="muted">No specific part recommendations were supplied.</p>
-                  {onRetryParts && (
-                    <button type="button" onClick={onRetryParts} className="btn-retry">
-                      🔄 Retry Parts Lookup
-                    </button>
-                  )}
+              ) : partsOverride && partsOverride.length > 0 ? (
+                /* Show sub-query parts in styled cards */
+                <div className="parts-subquery-list">
+                  {partsOverride.map((part, idx) => (
+                    <div key={`${part.part_number}-${idx}`} className="parts-subquery-item">
+                      <span className="parts-subquery-number">{part.part_number}</span>
+                      <span className="parts-subquery-desc">{part.description}</span>
+                      <a
+                        href={`https://www.vvapplianceparts.com/search?q=${encodeURIComponent(part.part_number)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="parts-subquery-link"
+                      >
+                        🔍 Find on V&V
+                      </a>
+                    </div>
+                  ))}
+                  <div className="parts-fallback-footer">
+                    <p className="parts-text-note muted">
+                      💡 Prices shown on V&V website.
+                    </p>
+                  </div>
                 </div>
-              ) : null}
+              ) : (() => {
+                /* Filter and show valid parts from original diagnosis */
+                const filteredParts = filterValidParts(details?.parts || []);
+                const isNoPartsNeeded = checkNoPartsRequired(details?.parts || []);
+                
+                if (isNoPartsNeeded) {
+                  return (
+                    <div className="parts-no-required-card">
+                      <div className="parts-no-required-icon">✅</div>
+                      <div className="parts-no-required-content">
+                        <h5>No Parts Typically Required</h5>
+                        <p>This repair usually doesn't need replacement parts.</p>
+                        {modelNumber && (
+                          <a
+                            href={`https://www.vvapplianceparts.com/search?q=${encodeURIComponent(modelNumber)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="parts-search-link"
+                          >
+                            🔍 Search parts for {modelNumber} on V&V
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (filteredParts.length > 0) {
+                  return (
+                    <div className="parts-text-fallback">
+                      <ul className="parts-text-list">
+                        {filteredParts.map((part, idx) => {
+                          const formatted = formatPartLine(part);
+                          const partNumMatch = formatted.match(/^([A-Z0-9]{7,})\s*[-—]/i);
+                          const partNum = partNumMatch ? partNumMatch[1] : null;
+                          const description = partNum
+                            ? formatted.replace(/^[A-Z0-9]{7,}\s*[-—]\s*/i, '')
+                            : formatted;
+
+                          return (
+                            <li key={`${part}-${idx}`} className="parts-text-item">
+                              {partNum && (
+                                <span className="parts-text-number">{partNum}</span>
+                              )}
+                              <span className="parts-text-desc">{sanitizeRichText(description)}</span>
+                              {partNum && (
+                                <a
+                                  href={`https://www.vvapplianceparts.com/search?q=${encodeURIComponent(partNum)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="parts-text-link"
+                                >
+                                  🔍
+                                </a>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      <div className="parts-fallback-footer">
+                        <p className="parts-text-note muted">
+                          💡 Diagram data temporarily unavailable.
+                        </p>
+                        {modelNumber && symptoms && (
+                          <button type="button" onClick={retryPartsWithSubQuery} className="btn-retry">
+                            🔄 Retry Parts Lookup
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="parts-empty-state">
+                    <p className="muted">No specific part numbers found.</p>
+                    {modelNumber && symptoms && (
+                      <button type="button" onClick={retryPartsWithSubQuery} className="btn-retry">
+                        🔄 Find Parts
+                      </button>
+                    )}
+                    {modelNumber && (
+                      <a
+                        href={`https://www.vvapplianceparts.com/search?q=${encodeURIComponent(modelNumber)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="parts-search-link"
+                      >
+                        🔍 Search on V&V
+                      </a>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
 

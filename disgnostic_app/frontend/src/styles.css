@@ -2603,6 +2603,126 @@ textarea {
   flex-direction: column;
   align-items: flex-start;
   gap: 0.75rem;
+  padding: 1.5rem;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px dashed #e2e8f0;
+}
+
+/* No parts required card */
+.parts-no-required-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+  border-radius: 12px;
+  border: 1px solid #a7f3d0;
+}
+
+.parts-no-required-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.parts-no-required-content {
+  flex: 1;
+}
+
+.parts-no-required-content h5 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #065f46;
+}
+
+.parts-no-required-content p {
+  margin: 0 0 0.75rem 0;
+  color: #047857;
+  font-size: 0.9rem;
+}
+
+/* Parts search link */
+.parts-search-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #6366f1;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.parts-search-link:hover {
+  color: #4f46e5;
+  text-decoration: underline;
+}
+
+/* Sub-query parts list */
+.parts-subquery-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.parts-subquery-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.parts-subquery-number {
+  font-family: "SF Mono", "Monaco", monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e40af;
+  background: #eff6ff;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.parts-subquery-desc {
+  flex: 1;
+  color: #374151;
+  font-size: 0.9rem;
+}
+
+.parts-subquery-link {
+  color: #6366f1;
+  text-decoration: none;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+
+.parts-subquery-link:hover {
+  color: #4f46e5;
+}
+
+/* Text link in parts list */
+.parts-text-link {
+  color: #6366f1;
+  text-decoration: none;
+  font-size: 0.85rem;
+  margin-left: auto;
+  transition: color 0.2s;
+}
+
+.parts-text-link:hover {
+  color: #4f46e5;
+}
+
+.parts-text-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 /* Mobile responsive */

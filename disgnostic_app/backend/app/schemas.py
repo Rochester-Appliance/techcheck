@@ -129,6 +129,26 @@ class RepairSubQueryResponse(BaseModel):
     safety_warnings: List[str] = Field(default_factory=list)
 
 
+class PartItem(BaseModel):
+    """A single part with number and description."""
+    part_number: str
+    description: str
+
+
+class PartsSubQueryRequest(BaseModel):
+    """Request for regenerating parts list for a specific issue."""
+    model_number: str = Field(..., min_length=1)
+    issue_title: str = Field(..., min_length=1)
+    symptoms: str = Field(..., min_length=1)
+
+
+class PartsSubQueryResponse(BaseModel):
+    """Response containing regenerated parts list."""
+    parts: List[PartItem] = Field(default_factory=list)
+    no_parts_required: bool = Field(default=False)
+    message: Optional[str] = None
+
+
 __all__ = [
     "DiagnosisRequest",
     "DiagnosisResponse",
@@ -147,6 +167,9 @@ __all__ = [
     "VerifySubQueryResponse",
     "RepairSubQueryRequest",
     "RepairSubQueryResponse",
+    "PartItem",
+    "PartsSubQueryRequest",
+    "PartsSubQueryResponse",
 ]
 
 
