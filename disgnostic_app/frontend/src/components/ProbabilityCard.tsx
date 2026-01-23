@@ -495,16 +495,6 @@ export const ProbabilityCard = ({
                   <div className="parts-no-required-content">
                     <h5>No Parts Typically Required</h5>
                     <p>{noPartsMessage || "This repair usually doesn't need replacement parts."}</p>
-                    {modelNumber && (
-                      <a
-                        href={`https://www.vvapplianceparts.com/search?q=${encodeURIComponent(modelNumber)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="parts-search-link"
-                      >
-                        🔍 Search parts for {modelNumber} on V&V
-                      </a>
-                    )}
                   </div>
                 </div>
               ) : partsOverride && partsOverride.length > 0 ? (
@@ -514,21 +504,8 @@ export const ProbabilityCard = ({
                     <div key={`${part.part_number}-${idx}`} className="parts-subquery-item">
                       <span className="parts-subquery-number">{part.part_number}</span>
                       <span className="parts-subquery-desc">{part.description}</span>
-                      <a
-                        href={`https://www.vvapplianceparts.com/search?q=${encodeURIComponent(part.part_number)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="parts-subquery-link"
-                      >
-                        🔍 Find on V&V
-                      </a>
                     </div>
                   ))}
-                  <div className="parts-fallback-footer">
-                    <p className="parts-text-note muted">
-                      💡 Prices shown on V&V website.
-                    </p>
-                  </div>
                 </div>
               ) : (() => {
                 /* Filter and show valid parts from original diagnosis */
@@ -542,16 +519,6 @@ export const ProbabilityCard = ({
                       <div className="parts-no-required-content">
                         <h5>No Parts Typically Required</h5>
                         <p>This repair usually doesn't need replacement parts.</p>
-                        {modelNumber && (
-                          <a
-                            href={`https://www.vvapplianceparts.com/search?q=${encodeURIComponent(modelNumber)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="parts-search-link"
-                          >
-                            🔍 Search parts for {modelNumber} on V&V
-                          </a>
-                        )}
                       </div>
                     </div>
                   );
@@ -575,16 +542,6 @@ export const ProbabilityCard = ({
                                 <span className="parts-text-number">{partNum}</span>
                               )}
                               <span className="parts-text-desc">{sanitizeRichText(description)}</span>
-                              {partNum && (
-                                <a
-                                  href={`https://www.vvapplianceparts.com/search?q=${encodeURIComponent(partNum)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="parts-text-link"
-                                >
-                                  🔍
-                                </a>
-                              )}
                             </li>
                           );
                         })}
@@ -610,16 +567,6 @@ export const ProbabilityCard = ({
                       <button type="button" onClick={retryPartsWithSubQuery} className="btn-retry">
                         🔄 Find Parts
                       </button>
-                    )}
-                    {modelNumber && (
-                      <a
-                        href={`https://www.vvapplianceparts.com/search?q=${encodeURIComponent(modelNumber)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="parts-search-link"
-                      >
-                        🔍 Search on V&V
-                      </a>
                     )}
                   </div>
                 );

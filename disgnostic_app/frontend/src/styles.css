@@ -2733,29 +2733,88 @@ textarea {
   
   .video-card {
     flex-direction: row;
-    height: 100px;
+    height: auto;
+    min-height: 90px;
   }
   
   .video-card-thumbnail {
-    width: 160px;
-    min-width: 160px;
+    width: 120px;
+    min-width: 120px;
     padding-top: 0;
-    height: 100%;
+    height: 90px;
+    flex-shrink: 0;
   }
   
   .video-card-info {
-    padding: 0.75rem;
-    justify-content: center;
+    padding: 0.5rem 0.75rem;
+    justify-content: flex-start;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
   }
   
   .video-card-title {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     -webkit-line-clamp: 2;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+  
+  .video-card-meta {
+    font-size: 0.7rem;
   }
   
   .video-card-play-overlay svg {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Parts sub-query items - stack on mobile */
+  .parts-subquery-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.875rem 1rem;
+  }
+
+  .parts-subquery-number {
+    font-size: 0.9rem;
+  }
+
+  .parts-subquery-desc {
+    font-size: 0.85rem;
+  }
+
+  .parts-subquery-link {
+    align-self: flex-start;
+    margin-top: 0.25rem;
+  }
+
+  /* Parts text items - stack on mobile */
+  .parts-text-item {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .parts-text-link {
+    margin-left: 0;
+    width: 100%;
+    margin-top: 0.25rem;
+  }
+
+  /* No parts required card - stack on mobile */
+  .parts-no-required-card {
+    flex-direction: column;
+    text-align: center;
+    align-items: center;
+  }
+
+  .parts-no-required-icon {
+    font-size: 1.5rem;
+  }
+
+  .parts-no-required-content {
+    text-align: center;
   }
 }
 
