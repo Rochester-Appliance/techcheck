@@ -65,11 +65,14 @@ export interface DiagramBundleResponse {
   diagrams: VNVDiagramSummary[];
 }
 
+export type AIProvider = "openai" | "gemini";
+
 export interface DiagnosisRequest {
   tech_name: string;
   job_number: string;
   model_number: string;
   problem_description: string;
+  ai_provider: AIProvider;
 }
 
 export interface DiagnosisFormValues {
@@ -77,6 +80,7 @@ export interface DiagnosisFormValues {
   jobNumber: string;
   modelNumber: string;
   problemDescription: string;
+  aiProvider: AIProvider;
 }
 
 export type OutcomeStatus = "resolved" | "unresolved" | null;

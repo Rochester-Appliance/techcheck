@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { clsx } from "clsx";
 import axios from "axios";
 
-import { DiagramBundleResponse, OutcomeStatus, ProbabilityItem } from "../types";
+import { AIProvider, DiagramBundleResponse, OutcomeStatus, ProbabilityItem } from "../types";
 import {
   extractPartNumbersFromList,
   getUniqueDiagramsFromMatches,
@@ -27,6 +27,7 @@ interface ProbabilityCardProps {
   partsLoading?: boolean;
   modelNumber?: string;
   symptoms?: string;
+  aiProvider?: AIProvider;
 }
 
 const severityMap = (percent: number) => {
@@ -58,6 +59,7 @@ export const ProbabilityCard = ({
   onRetryParts,
   partsLoading = false,
   modelNumber,
+  aiProvider = "openai",
   symptoms,
 }: ProbabilityCardProps) => {
   const [activeSection, setActiveSection] = useState<"verify" | "parts" | "video" | "repair" | null>(
@@ -179,6 +181,7 @@ export const ProbabilityCard = ({
       model_number: modelNumber,
       issue_title: item.title,
       symptoms: symptoms,
+      ai_provider: aiProvider,
     })
       .then((response) => {
         setVerifyStepsOverride(response.data.verify_steps || []);
@@ -203,6 +206,7 @@ export const ProbabilityCard = ({
       model_number: modelNumber,
       issue_title: item.title,
       symptoms: symptoms,
+      ai_provider: aiProvider,
     })
       .then((response) => {
         setRepairStepsOverride(response.data.repair_steps || []);
@@ -261,6 +265,7 @@ export const ProbabilityCard = ({
       model_number: modelNumber,
       issue_title: item.title,
       symptoms: symptoms,
+      ai_provider: aiProvider,
     })
       .then((response) => {
         const { parts, no_parts_required, message } = response.data;

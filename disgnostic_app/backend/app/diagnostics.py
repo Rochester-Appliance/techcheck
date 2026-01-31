@@ -15,11 +15,160 @@ try:
 except ImportError:  # pragma: no cover - handled at runtime
     OpenAI = None  # type: ignore
 
+try:
+    from google import genai
+    from google.genai import types as genai_types
+except ImportError:  # pragma: no cover - handled at runtime
+    genai = None  # type: ignore
+    genai_types = None  # type: ignore
+
+from pydantic import BaseModel, Field
+
 from .config import get_settings
 from .schemas import IssueDetails, ProbabilityItem, WebResult
 
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Gemini Structured Output Schemas
+# These schemas enforce JSON output format from Gemini API
+# ============================================================================
+
+class GeminiPartItem(BaseModel):
+    """A single part with number and description for Gemini JSON output."""
+    part_number: str = Field(description="Manufacturer part number (7-10 digit code like 242044008)")
+    description: str = Field(description="Brief description of the part")
+
+
+class GeminiIssueDetails(BaseModel):
+    """Detailed information for a single diagnostic issue - Gemini JSON format."""
+    difficulty: str = Field(description="Difficulty score as string like '45/100' or '45'")
+    estimated_time: str = Field(description="Time estimate like '30 minutes' or '20-30 minutes'")
+    failure_signals: List[str] = Field(
+        description="2-4 bullet points explaining why symptoms match this issue"
+    )
+    parts: List[GeminiPartItem] = Field(
+        default_factory=list,
+        description="Parts needed with part_number and description. Empty if no parts needed."
+    )
+    verify_steps: List[str] = Field(
+        description="4-6 specific verification steps. Each step should include what to check, how to check it, and expected result."
+    )
+    repair_steps: List[str] = Field(
+        description="5-8 numbered repair steps. Each step starts with action verb (Remove, Disconnect, Install)."
+    )
+    safety_warnings: List[str] = Field(
+        description="2-4 specific safety warnings relevant to this repair."
+    )
+    video_searches: List[str] = Field(
+        default_factory=list,
+        description="1-2 YouTube search query suggestions for this repair."
+    )
+
+
+class GeminiProbabilityItem(BaseModel):
+    """A single diagnostic issue with probability - Gemini JSON format."""
+    percent: int = Field(description="Probability percentage (integer, e.g., 55)")
+    title: str = Field(description="Short issue title (e.g., 'Frozen Defrost Drain')")
+    description: str = Field(description="One-line description linking symptoms to failure mode")
+    details: GeminiIssueDetails = Field(description="Detailed breakdown for this issue")
+
+
+class GeminiDiagnosisResponse(BaseModel):
+    """Complete diagnosis response structure for Gemini JSON output."""
+    probabilities: List[GeminiProbabilityItem] = Field(
+        description="Exactly 3 issues in descending probability order, percentages must sum to 100"
+    )
+    service_notes: str = Field(
+        default="",
+        description="Service bulletin notes, escalation criteria, or customer questions to ask"
+    )
+
+
+def parse_gemini_diagnosis(json_response: str) -> Tuple[List[ProbabilityItem], str]:
+    """
+    Parse Gemini's JSON response into our standard ProbabilityItem structure.
+    
+    This function maps GeminiDiagnosisResponse -> List[ProbabilityItem]
+    converting the structured JSON into our existing frontend-compatible format.
+    
+    Args:
+        json_response: Raw JSON string from Gemini API
+        
+    Returns:
+        Tuple of (list of ProbabilityItem, service_notes string)
+    """
+    try:
+        # Clean up JSON if wrapped in markdown code blocks
+        cleaned = json_response.strip()
+        if cleaned.startswith("```"):
+            # Remove markdown code fence
+            lines = cleaned.split("\n")
+            # Find the actual JSON content
+            start_idx = 1 if lines[0].startswith("```") else 0
+            end_idx = len(lines)
+            for i in range(len(lines) - 1, -1, -1):
+                if lines[i].strip() == "```":
+                    end_idx = i
+                    break
+            cleaned = "\n".join(lines[start_idx:end_idx])
+            # Remove "json" language identifier if present
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:].strip()
+        
+        # Parse JSON
+        data = json.loads(cleaned)
+        
+        # Validate with Pydantic
+        gemini_response = GeminiDiagnosisResponse.model_validate(data)
+        
+    except json.JSONDecodeError as e:
+        logger.error("Failed to parse Gemini JSON response: %s", e)
+        logger.debug("Raw response: %s", json_response[:1000])
+        raise DiagnosticError(f"Gemini returned invalid JSON: {e}")
+    except Exception as e:
+        logger.error("Failed to validate Gemini response structure: %s", e)
+        raise DiagnosticError(f"Gemini response validation failed: {e}")
+    
+    # Convert to our standard ProbabilityItem format
+    probabilities: List[ProbabilityItem] = []
+    
+    for gemini_prob in gemini_response.probabilities:
+        # Convert parts from [{part_number, description}] to ["PARTNUM - Description"]
+        parts_list: List[str] = []
+        for part in gemini_prob.details.parts:
+            if part.part_number and part.description:
+                parts_list.append(f"{part.part_number} - {part.description}")
+            elif part.part_number:
+                parts_list.append(part.part_number)
+        
+        # Build IssueDetails from Gemini format
+        issue_details = IssueDetails(
+            difficulty=gemini_prob.details.difficulty,
+            time=gemini_prob.details.estimated_time,
+            explanation="\n".join(gemini_prob.details.failure_signals) if gemini_prob.details.failure_signals else None,
+            parts=parts_list,
+            verify_steps=gemini_prob.details.verify_steps,
+            repair_steps=gemini_prob.details.repair_steps,
+            safety_warnings=gemini_prob.details.safety_warnings,
+            video_searches=gemini_prob.details.video_searches,
+        )
+        
+        # Build ProbabilityItem
+        prob_item = ProbabilityItem(
+            percent=gemini_prob.percent,
+            title=gemini_prob.title,
+            description=gemini_prob.description,
+            details=issue_details,
+        )
+        probabilities.append(prob_item)
+    
+    # Sort by percent descending (should already be sorted, but ensure)
+    probabilities.sort(key=lambda x: x.percent, reverse=True)
+    
+    return probabilities, gemini_response.service_notes
 
 
 class DiagnosticError(RuntimeError):
@@ -34,6 +183,17 @@ def get_openai_client() -> "OpenAI":
     if OpenAI is None:
         raise DiagnosticError("openai package is not installed.")
     return OpenAI(api_key=api_key)
+
+
+def get_gemini_client() -> "genai.Client":
+    """Create and return a Gemini API client."""
+    settings = get_settings()
+    api_key = settings.gemini_api_key
+    if not api_key:
+        raise DiagnosticError("GEMINI_API_KEY is not configured. Set env variable.")
+    if genai is None:
+        raise DiagnosticError("google-genai package is not installed.")
+    return genai.Client(api_key=api_key)
 
 
 def search_web(query: str, num_results: int = 10, timeout: int = 10) -> List[WebResult]:
@@ -616,6 +776,276 @@ Expectations:
     return payload
 
 
+def perform_diagnostic_analysis_gemini(
+    model_number: str,
+    problem_description: str,
+    *,
+    tech_name: Optional[str] = None,
+    job_number: Optional[str] = None,
+) -> Dict:
+    """
+    Perform diagnostic analysis using Gemini 3 API with structured JSON output.
+    
+    This function uses Gemini's structured output feature to return clean JSON
+    that matches our schema, eliminating regex-based markdown parsing.
+    """
+    client = get_gemini_client()
+
+    job_context_lines: List[str] = []
+    if tech_name:
+        job_context_lines.append(f"Technician on site: {tech_name}")
+    if job_number:
+        job_context_lines.append(f"Job/WO #: {job_number}")
+    job_context = "\n".join(job_context_lines) if job_context_lines else "Not provided"
+
+    # Simplified prompt for JSON output - focus on CONTENT, not format
+    # The JSON schema handles the structure
+    diagnostic_prompt = f"""You are an expert appliance repair technician with 20+ years of field experience.
+
+APPLIANCE INFO:
+- Model Number: {model_number}
+- Reported Symptoms: {problem_description}
+- Job Context: {job_context}
+
+YOUR TASK:
+Diagnose this appliance issue and provide exactly 3 probable causes with detailed repair information.
+
+CRITICAL REQUIREMENTS:
+
+1. PROBABILITIES: Provide exactly 3 issues. Percentages MUST sum to 100%.
+
+2. PARTS: Use google_search to find REAL manufacturer part numbers (7-10 digit codes like "242044008", "W11650662").
+   - Each part needs: part_number (the actual code) and description
+   - If no parts needed for a repair, leave the parts array empty
+   - NEVER use generic words like "REPLACEMENT" or "OPTIONAL" as part numbers
+
+3. VERIFICATION STEPS: Provide 4-6 specific steps. Each step must include:
+   - What to check and how to check it
+   - Expected result or reading
+   - What failure looks like
+
+4. REPAIR STEPS: Provide 5-8 clear steps. Each step should:
+   - Start with action verb (Remove, Disconnect, Install)
+   - Include specific details (screw types, connector colors)
+
+5. SAFETY WARNINGS: Provide 2-4 specific warnings relevant to this repair.
+   - Be specific: "Sharp evaporator fins can cut - wear gloves" not just "Be careful"
+
+6. LANGUAGE: Use plain, simple English. Avoid jargon. Explain technical terms briefly.
+   - Write for a field tech who needs to understand in 10 seconds per bullet.
+
+7. NO URLS: Never include website links in steps or warnings - only plain text instructions.
+
+8. VIDEO SEARCHES: Provide 1-2 YouTube search query suggestions (just the search text, not URLs).
+
+Use google_search to:
+- Find exact part numbers for this model
+- Check for service bulletins or recalls
+- Verify common failure patterns"""
+
+    # Get JSON schema from our Pydantic model
+    json_schema = GeminiDiagnosisResponse.model_json_schema()
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-3-pro-preview",  # Pro for maximum intelligence
+            contents=[diagnostic_prompt],
+            config=genai_types.GenerateContentConfig(
+                tools=[{"google_search": {}}],
+                response_mime_type="application/json",
+                response_schema=json_schema,
+                thinking_config=genai_types.ThinkingConfig(thinking_budget=-1),  # -1 = AUTOMATIC
+                max_output_tokens=8000,
+            )
+        )
+    except Exception as exc:  # pragma: no cover - network
+        logger.exception("Gemini diagnostic request failed")
+        raise DiagnosticError(f"Gemini diagnostic request failed: {exc}")
+
+    # Extract JSON text from Gemini response
+    json_text = ""
+    try:
+        if hasattr(response, "text"):
+            json_text = response.text or ""
+        elif hasattr(response, "candidates") and response.candidates:
+            for candidate in response.candidates:
+                if hasattr(candidate, "content") and candidate.content:
+                    for part in candidate.content.parts:
+                        if hasattr(part, "text") and part.text:
+                            json_text += part.text
+    except Exception:  # pragma: no cover - defensive fallback
+        pass
+
+    if not json_text:
+        raise DiagnosticError("Received empty response from Gemini.")
+
+    # Parse structured JSON response
+    probabilities, service_notes = parse_gemini_diagnosis(json_text)
+
+    if not probabilities:
+        raise DiagnosticError("Failed to parse diagnostic results from Gemini response.")
+
+    # Enrich with YouTube video links (same logic as before)
+    web_results = search_web(f"{model_number} {problem_description} repair parts", 15)
+
+    def _youtube_links(limit: int = 5) -> List[str]:
+        links: List[str] = []
+        seen: set[str] = set()
+        for result in web_results:
+            url_lower = result.url.lower()
+            if "youtube.com/watch" not in url_lower and "youtu.be/" not in url_lower:
+                continue
+            label = result.title.strip() or result.url
+            markdown_link = f"[{label}]({result.url})"
+            if markdown_link.lower() in seen:
+                continue
+            seen.add(markdown_link.lower())
+            links.append(markdown_link)
+            if len(links) >= limit:
+                break
+        return links
+
+    youtube_markdown_links = _youtube_links()
+    if not youtube_markdown_links:
+        supplemental_results = search_web(
+            f"{model_number} {problem_description} repair video site:youtube.com", 8
+        )
+        if supplemental_results:
+            web_results.extend(supplemental_results)
+            youtube_markdown_links = _youtube_links()
+
+    video_lookup_cache: Dict[str, List[str]] = {}
+
+    def _normalise_video_query(value: str) -> Optional[str]:
+        cleaned = value.replace(""", "").replace(""", "").strip()
+        cleaned = re.sub(r"\bon youtube\b", "", cleaned, flags=re.IGNORECASE).strip()
+        cleaned = cleaned.strip('"')
+        if not cleaned:
+            return None
+        return cleaned
+
+    def _fetch_direct_video_links(query: str, per_query_limit: int = 2) -> List[str]:
+        if not query:
+            return []
+        if query in video_lookup_cache:
+            return video_lookup_cache[query]
+        try:
+            resp = requests.get(
+                "https://yewtu.be/api/v1/search",
+                params={"q": query, "type": "video", "region": "US"},
+                timeout=8,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception:
+            video_lookup_cache[query] = []
+            return []
+
+        links: List[str] = []
+        for item in data:
+            video_id = item.get("videoId")
+            title = item.get("title")
+            if not video_id or not title:
+                continue
+            url = f"https://www.youtube.com/watch?v={video_id}"
+            markdown_link = f"[{title}]({url})"
+            if markdown_link in links:
+                continue
+            links.append(markdown_link)
+            if len(links) >= per_query_limit:
+                break
+
+        video_lookup_cache[query] = links
+        return links
+
+    def _resolve_direct_videos(queries: Sequence[str], fallback_query: str) -> List[str]:
+        aggregated: List[str] = []
+        seen: set[str] = set()
+
+        for raw in queries:
+            normalized = _normalise_video_query(raw)
+            if not normalized:
+                continue
+            for link in _fetch_direct_video_links(normalized):
+                key = link.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                aggregated.append(link)
+
+        if not aggregated and fallback_query:
+            for link in _fetch_direct_video_links(fallback_query):
+                key = link.lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                aggregated.append(link)
+
+        return aggregated
+
+    # Enrich video links for each probability item
+    for prob in probabilities:
+        if prob.details:
+            existing_video_entries = list(prob.details.video_searches)
+
+            direct_video_links = _resolve_direct_videos(
+                existing_video_entries,
+                fallback_query=f"{model_number} {prob.title} repair",
+            )
+
+            if youtube_markdown_links or direct_video_links:
+                enriched_videos: List[str] = []
+                seen_video: set[str] = set()
+
+                for entry in existing_video_entries:
+                    normalized = entry.strip()
+                    if not normalized:
+                        continue
+                    key = normalized.lower()
+                    if key in seen_video:
+                        continue
+                    seen_video.add(key)
+                    enriched_videos.append(normalized)
+
+                for link in youtube_markdown_links:
+                    key = link.lower()
+                    if key in seen_video:
+                        continue
+                    seen_video.add(key)
+                    enriched_videos.append(link)
+
+                for link in direct_video_links:
+                    key = link.lower()
+                    if key in seen_video:
+                        continue
+                    seen_video.add(key)
+                    enriched_videos.append(link)
+
+                prob.details.video_searches = enriched_videos
+
+    # Build full_analysis text for display (include service notes)
+    full_analysis = f"Gemini Diagnostic Analysis for {model_number}\n\n"
+    for prob in probabilities:
+        full_analysis += f"[{prob.percent}%] {prob.title} | {prob.description}\n"
+    if service_notes:
+        full_analysis += f"\nService Notes:\n{service_notes}"
+
+    payload = {
+        "full_analysis": full_analysis,
+        "probabilities": [prob.model_dump() for prob in probabilities],
+        "web_results": [result.model_dump() for result in web_results],
+        "timestamp": datetime.utcnow(),
+        "model_number": model_number,
+        "problem": problem_description,
+        "tech_name": tech_name,
+        "job_number": job_number,
+    }
+
+    logger.debug("Gemini diagnostic payload generated: %s", json.dumps(payload, default=str)[:5000])
+
+    return payload
+
+
 def generate_verification_steps(
     model_number: str,
     issue_title: str,
@@ -917,15 +1347,236 @@ If no parts needed:
         }
 
 
+def generate_verification_steps_gemini(
+    model_number: str,
+    issue_title: str,
+    symptoms: str,
+) -> Dict[str, List[str]]:
+    """
+    Generate focused verification steps using Gemini API.
+    """
+    client = get_gemini_client()
+
+    prompt = f"""You are an expert appliance repair technician. Generate ONLY verification steps for diagnosing this specific issue.
+
+Model Number: {model_number}
+Issue to Verify: {issue_title}
+Reported Symptoms: {symptoms}
+
+Provide 4-6 specific, actionable verification steps. Each step MUST include:
+- What to check (component, connection, reading)
+- How to check it (tool, method, visual inspection)
+- Expected result (specific values, ranges, or visual signs)
+- What it means if the test fails
+
+Format each step as a clear, numbered instruction. Use plain English.
+
+Also provide 1-3 relevant safety warnings if applicable.
+
+RESPONSE FORMAT (strict JSON only, no markdown):
+{{"verify_steps": ["step 1...", "step 2...", ...], "safety_warnings": ["warning 1...", "warning 2..."]}}"""
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-3-flash-preview",
+            contents=[prompt],
+            config=genai_types.GenerateContentConfig(
+                response_mime_type="application/json",
+                max_output_tokens=2000,
+            )
+        )
+    except Exception as exc:
+        logger.exception("Gemini verification sub-query failed")
+        raise DiagnosticError(f"Gemini verification sub-query failed: {exc}")
+
+    output_text = response.text if hasattr(response, "text") else ""
+
+    try:
+        cleaned = output_text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+        
+        result = json.loads(cleaned)
+        return {
+            "verify_steps": result.get("verify_steps", []),
+            "safety_warnings": result.get("safety_warnings", []),
+        }
+    except json.JSONDecodeError:
+        logger.warning("Failed to parse Gemini verification response: %s", output_text[:500])
+        lines = output_text.strip().split('\n')
+        steps = [line.strip() for line in lines if line.strip() and len(line.strip()) > 10]
+        return {"verify_steps": steps[:6], "safety_warnings": []}
+
+
+def generate_repair_steps_gemini(
+    model_number: str,
+    issue_title: str,
+    symptoms: str,
+) -> Dict[str, List[str]]:
+    """
+    Generate focused repair steps using Gemini API.
+    """
+    client = get_gemini_client()
+
+    prompt = f"""You are an expert appliance repair technician. Generate ONLY step-by-step repair instructions for fixing this specific issue.
+
+Model Number: {model_number}
+Issue to Repair: {issue_title}
+Reported Symptoms: {symptoms}
+
+Provide 5-8 clear, numbered repair steps. Each step should:
+- Start with an action verb (Remove, Disconnect, Install, Test, etc.)
+- Include specific details (screw types, connector colors, torque specs if relevant)
+- Warn about common mistakes
+- Be in logical order from start to finish
+
+Use plain English that any technician can follow quickly.
+
+Also provide 2-4 relevant safety warnings.
+
+RESPONSE FORMAT (strict JSON only, no markdown):
+{{"repair_steps": ["step 1...", "step 2...", ...], "safety_warnings": ["warning 1...", "warning 2..."]}}"""
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-3-flash-preview",
+            contents=[prompt],
+            config=genai_types.GenerateContentConfig(
+                response_mime_type="application/json",
+                max_output_tokens=2000,
+            )
+        )
+    except Exception as exc:
+        logger.exception("Gemini repair sub-query failed")
+        raise DiagnosticError(f"Gemini repair sub-query failed: {exc}")
+
+    output_text = response.text if hasattr(response, "text") else ""
+
+    try:
+        cleaned = output_text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+        
+        result = json.loads(cleaned)
+        return {
+            "repair_steps": result.get("repair_steps", []),
+            "safety_warnings": result.get("safety_warnings", []),
+        }
+    except json.JSONDecodeError:
+        logger.warning("Failed to parse Gemini repair response: %s", output_text[:500])
+        lines = output_text.strip().split('\n')
+        steps = [line.strip() for line in lines if line.strip() and len(line.strip()) > 10]
+        return {"repair_steps": steps[:8], "safety_warnings": []}
+
+
+def generate_parts_list_gemini(
+    model_number: str,
+    issue_title: str,
+    symptoms: str,
+) -> Dict[str, Any]:
+    """
+    Generate focused parts list using Gemini API with google_search.
+    """
+    client = get_gemini_client()
+
+    prompt = f"""You are an expert appliance repair technician. List ONLY the replacement parts needed for this specific repair.
+
+Model Number: {model_number}
+Issue to Fix: {issue_title}
+Reported Symptoms: {symptoms}
+
+CRITICAL INSTRUCTIONS:
+1. Use google_search to find the EXACT part numbers for this model
+2. Return ONLY actual manufacturer part numbers (7-10 digit codes like "242044008", "W11650662", "5303918634")
+3. NEVER return generic descriptions as parts (no "DIAGRAM", "REPLACEMENT", "OPTIONAL", "APPROVED")
+4. If this repair doesn't require replacement parts, return an empty parts array with no_parts_required=true
+
+RESPONSE FORMAT (strict JSON only, no markdown):
+{{"parts": [{{"part_number": "242044008", "description": "Defrost heater assembly"}}], "no_parts_required": false, "message": null}}"""
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-3-flash-preview",
+            contents=[prompt],
+            config=genai_types.GenerateContentConfig(
+                tools=[{"google_search": {}}],
+                response_mime_type="application/json",
+                max_output_tokens=2000,
+            )
+        )
+    except Exception as exc:
+        logger.exception("Gemini parts sub-query failed")
+        raise DiagnosticError(f"Gemini parts sub-query failed: {exc}")
+
+    output_text = response.text if hasattr(response, "text") else ""
+
+    try:
+        cleaned = output_text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("```")[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+        
+        result = json.loads(cleaned)
+        
+        valid_parts = []
+        for part in result.get("parts", []):
+            pn = part.get("part_number", "").strip()
+            desc = part.get("description", "").strip()
+            if pn and len(pn) >= 7 and desc:
+                valid_parts.append({"part_number": pn, "description": desc})
+        
+        return {
+            "parts": valid_parts,
+            "no_parts_required": result.get("no_parts_required", len(valid_parts) == 0),
+            "message": result.get("message"),
+        }
+    except json.JSONDecodeError:
+        logger.warning("Failed to parse Gemini parts response: %s", output_text[:500])
+        parts = []
+        lines = output_text.strip().split('\n')
+        for line in lines:
+            match = re.search(r'\b(\d{7,10}|[A-Z]\d{6,10})\b', line)
+            if match:
+                pn = match.group(1)
+                desc = re.sub(r'^.*?\b' + pn + r'\b\s*[-–—:]*\s*', '', line).strip()
+                if desc:
+                    parts.append({"part_number": pn, "description": desc})
+        
+        return {
+            "parts": parts,
+            "no_parts_required": len(parts) == 0,
+            "message": None,
+        }
+
+
 __all__ = [
     "DiagnosticError",
     "search_web",
     "perform_diagnostic_analysis",
+    "perform_diagnostic_analysis_gemini",
     "extract_issue_details",
+    "parse_gemini_diagnosis",
     "get_openai_client",
+    "get_gemini_client",
     "generate_verification_steps",
+    "generate_verification_steps_gemini",
     "generate_repair_steps",
+    "generate_repair_steps_gemini",
     "generate_parts_list",
+    "generate_parts_list_gemini",
+    # Gemini structured output schemas
+    "GeminiPartItem",
+    "GeminiIssueDetails",
+    "GeminiProbabilityItem",
+    "GeminiDiagnosisResponse",
 ]
 
 

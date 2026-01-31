@@ -66,6 +66,10 @@ class Settings:
     def youtube_api_key(self) -> str:
         return self._youtube_api_key
 
+    @property
+    def gemini_api_key(self) -> Optional[str]:
+        return os.getenv("GEMINI_API_KEY", "")
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

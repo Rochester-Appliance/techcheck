@@ -40,6 +40,30 @@ export const DiagnosisForm = ({
         <h2 id="diagnosis-form-heading">Diagnostic Intake</h2>
       </div>
 
+      {/* AI Provider Toggle */}
+      <div className="ai-provider-toggle">
+        <span className={`provider-label ${values.aiProvider === "openai" ? "active" : ""}`}>
+          OpenAI
+        </span>
+        <label className="toggle-switch">
+          <input
+            type="checkbox"
+            checked={values.aiProvider === "gemini"}
+            onChange={(e) =>
+              onChange({
+                ...values,
+                aiProvider: e.target.checked ? "gemini" : "openai",
+              })
+            }
+            disabled={isDisabled}
+          />
+          <span className="toggle-slider" />
+        </label>
+        <span className={`provider-label ${values.aiProvider === "gemini" ? "active" : ""}`}>
+          Gemini
+        </span>
+      </div>
+
       <form onSubmit={handleSubmit} className="form-grid">
         <div className="input-group">
           <label htmlFor="techName">Tech Name <span className="optional-label">(optional)</span></label>

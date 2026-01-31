@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
+
+
+# Type alias for AI provider selection
+AIProvider = Literal["openai", "gemini"]
 
 
 class DiagnosisRequest(BaseModel):
@@ -11,6 +15,7 @@ class DiagnosisRequest(BaseModel):
     job_number: Optional[str] = Field(default=None)
     model_number: str = Field(..., min_length=1)
     problem_description: str = Field(..., min_length=1)
+    ai_provider: AIProvider = Field(default="openai")
 
 
 class IssueDetails(BaseModel):
@@ -108,6 +113,7 @@ class VerifySubQueryRequest(BaseModel):
     model_number: str = Field(..., min_length=1)
     issue_title: str = Field(..., min_length=1)
     symptoms: str = Field(..., min_length=1)
+    ai_provider: AIProvider = Field(default="openai")
 
 
 class VerifySubQueryResponse(BaseModel):
@@ -121,6 +127,7 @@ class RepairSubQueryRequest(BaseModel):
     model_number: str = Field(..., min_length=1)
     issue_title: str = Field(..., min_length=1)
     symptoms: str = Field(..., min_length=1)
+    ai_provider: AIProvider = Field(default="openai")
 
 
 class RepairSubQueryResponse(BaseModel):
@@ -140,6 +147,7 @@ class PartsSubQueryRequest(BaseModel):
     model_number: str = Field(..., min_length=1)
     issue_title: str = Field(..., min_length=1)
     symptoms: str = Field(..., min_length=1)
+    ai_provider: AIProvider = Field(default="openai")
 
 
 class PartsSubQueryResponse(BaseModel):

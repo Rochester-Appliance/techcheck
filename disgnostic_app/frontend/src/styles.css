@@ -145,6 +145,81 @@ a:hover {
   pointer-events: none;
 }
 
+/* AI Provider Toggle */
+.ai-provider-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 0.5rem;
+  position: relative;
+  z-index: 1;
+}
+
+.provider-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #94a3b8;
+  transition: color 0.3s ease;
+  user-select: none;
+}
+
+.provider-label.active {
+  color: #1e40af;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 64px;
+  height: 32px;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border-radius: 32px;
+  transition: background 0.3s ease;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-slider::before {
+  content: "";
+  position: absolute;
+  height: 24px;
+  width: 24px;
+  left: 4px;
+  bottom: 4px;
+  background: #ffffff;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: linear-gradient(135deg, #4285f4 0%, #1a73e8 100%);
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(32px);
+}
+
+.toggle-switch input:disabled + .toggle-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

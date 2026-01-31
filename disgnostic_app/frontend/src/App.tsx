@@ -28,6 +28,7 @@ const emptyForm: DiagnosisFormValues = {
   jobNumber: "",
   modelNumber: "",
   problemDescription: "",
+  aiProvider: "openai",
 };
 
 const trimSymptom = (value: string, length = 160) =>
@@ -183,6 +184,7 @@ function App() {
       job_number: trimmedJob,
       model_number: trimmedModel,
       problem_description: trimmedProblem,
+      ai_provider: values.aiProvider,
     };
 
     try {
@@ -339,6 +341,7 @@ function App() {
                   partsLoading={diagramState.status === "loading"}
                   modelNumber={diagnosis?.model_number}
                   symptoms={diagnosis?.problem}
+                  aiProvider={formValues.aiProvider}
                 />
               ))}
             </section>

@@ -33,7 +33,10 @@ export const diagnose = async (
   payload: DiagnosisRequest,
 ): Promise<DiagnosisResponse> => {
   try {
-    const { data } = await client.post<DiagnosisResponse>("/diagnose", payload);
+    const { data } = await client.post<DiagnosisResponse>("/diagnose", {
+      ...payload,
+      ai_provider: payload.ai_provider || "openai",
+    });
     return data;
   } catch (error) {
     throw new Error(extractErrorMessage(error));

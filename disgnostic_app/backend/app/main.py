@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 import httpx
@@ -17,9 +17,13 @@ from .diagnostics import (
     DiagnosticError,
     extract_issue_details,
     perform_diagnostic_analysis,
+    perform_diagnostic_analysis_gemini,
     generate_verification_steps,
+    generate_verification_steps_gemini,
     generate_repair_steps,
+    generate_repair_steps_gemini,
     generate_parts_list,
+    generate_parts_list_gemini,
 )
 from .schemas import (
     DiagnosisRequest,
@@ -56,7 +60,7 @@ class CartItem(BaseModel):
     description: str
     price: float  # in dollars
     quantity: int = 1
-    image_url: str | None = None
+    image_url: Optional[str] = None
 
 
 class CheckoutRequest(BaseModel):
@@ -96,13 +100,23 @@ async def healthcheck() -> Dict[str, str]:
 @app.post("/diagnose", response_model=DiagnosisResponse, tags=["diagnostics"])
 async def diagnose(payload: DiagnosisRequest) -> DiagnosisResponse:
     try:
-        result: Dict[str, Any] = await run_in_threadpool(
-            perform_diagnostic_analysis,
-            payload.model_number,
-            payload.problem_description,
-            tech_name=payload.tech_name,
-            job_number=payload.job_number,
-        )
+        # Route to appropriate AI provider
+        if payload.ai_provider == "gemini":
+            result: Dict[str, Any] = await run_in_threadpool(
+                perform_diagnostic_analysis_gemini,
+                payload.model_number,
+                payload.problem_description,
+                tech_name=payload.tech_name,
+                job_number=payload.job_number,
+            )
+        else:
+            result = await run_in_threadpool(
+                perform_diagnostic_analysis,
+                payload.model_number,
+                payload.problem_description,
+                tech_name=payload.tech_name,
+                job_number=payload.job_number,
+            )
     except DiagnosticError as exc:
         logger.warning("Diagnostic error: %s", exc)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -130,12 +144,21 @@ async def regenerate_verification_steps(payload: VerifySubQueryRequest) -> Verif
     Use this when the initial diagnosis didn't provide adequate verification steps.
     """
     try:
-        result = await run_in_threadpool(
-            generate_verification_steps,
-            payload.model_number,
-            payload.issue_title,
-            payload.symptoms,
-        )
+        # Route to appropriate AI provider
+        if payload.ai_provider == "gemini":
+            result = await run_in_threadpool(
+                generate_verification_steps_gemini,
+                payload.model_number,
+                payload.issue_title,
+                payload.symptoms,
+            )
+        else:
+            result = await run_in_threadpool(
+                generate_verification_steps,
+                payload.model_number,
+                payload.issue_title,
+                payload.symptoms,
+            )
     except DiagnosticError as exc:
         logger.warning("Verification sub-query error: %s", exc)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -156,12 +179,21 @@ async def regenerate_repair_steps(payload: RepairSubQueryRequest) -> RepairSubQu
     Use this when the initial diagnosis didn't provide adequate repair steps.
     """
     try:
-        result = await run_in_threadpool(
-            generate_repair_steps,
-            payload.model_number,
-            payload.issue_title,
-            payload.symptoms,
-        )
+        # Route to appropriate AI provider
+        if payload.ai_provider == "gemini":
+            result = await run_in_threadpool(
+                generate_repair_steps_gemini,
+                payload.model_number,
+                payload.issue_title,
+                payload.symptoms,
+            )
+        else:
+            result = await run_in_threadpool(
+                generate_repair_steps,
+                payload.model_number,
+                payload.issue_title,
+                payload.symptoms,
+            )
     except DiagnosticError as exc:
         logger.warning("Repair sub-query error: %s", exc)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -183,12 +215,21 @@ async def regenerate_parts_list(payload: PartsSubQueryRequest) -> PartsSubQueryR
     Returns clean part numbers that can be matched against V&V.
     """
     try:
-        result = await run_in_threadpool(
-            generate_parts_list,
-            payload.model_number,
-            payload.issue_title,
-            payload.symptoms,
-        )
+        # Route to appropriate AI provider
+        if payload.ai_provider == "gemini":
+            result = await run_in_threadpool(
+                generate_parts_list_gemini,
+                payload.model_number,
+                payload.issue_title,
+                payload.symptoms,
+            )
+        else:
+            result = await run_in_threadpool(
+                generate_parts_list,
+                payload.model_number,
+                payload.issue_title,
+                payload.symptoms,
+            )
     except DiagnosticError as exc:
         logger.warning("Parts sub-query error: %s", exc)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
